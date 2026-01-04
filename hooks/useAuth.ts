@@ -83,10 +83,29 @@ export function useAuth() {
      */
     const clearError = () => setError(null)
 
+    /**
+     * Sign in with Google
+     */
+    const signInWithGoogle = async () => {
+        setLoading(true)
+        setError(null)
+
+        try {
+            await authService.signInWithGoogle()
+            // OAuth redirect will handle navigation
+        } catch (err: any) {
+            setError(err.message || 'An error occurred during Google sign-in')
+            throw err
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return {
         signup,
         login,
         logout,
+        signInWithGoogle,
         loading,
         error,
         clearError,
