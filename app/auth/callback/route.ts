@@ -47,7 +47,7 @@ export async function GET(request: Request) {
             }
 
 
-            // Create creator profile if it doesn't exist (new Google user)
+            // Create creator profile if it doesn't exist (new OAuth user - Google or Facebook)
             if (!existingCreator) {
 
                 const fullName = user.user_metadata.full_name || user.user_metadata.name || user.email?.split('@')[0] || 'User'

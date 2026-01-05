@@ -31,12 +31,14 @@ export async function updateSession(request: NextRequest) {
     // supabase.auth.getUser(). A simple mistake could make it very hard to debug
     // issues with users being randomly logged out.
 
-    // Skip authentication check for auth routes (login, signup, callback)
-    // This allows OAuth callbacks to complete before checking for a user
+    // Skip authentication check for auth routes (login, signup, callback, password reset)
+    // This allows OAuth callbacks and password reset to complete before checking for a user
     if (
         request.nextUrl.pathname.startsWith('/login') ||
         request.nextUrl.pathname.startsWith('/signup') ||
         request.nextUrl.pathname.startsWith('/auth') ||
+        request.nextUrl.pathname.startsWith('/forgot-password') ||
+        request.nextUrl.pathname.startsWith('/reset-password') ||
         request.nextUrl.pathname === '/'
     ) {
         return supabaseResponse
