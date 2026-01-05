@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/client'
 
 export interface SignupData {
-    name: string
+    firstName: string
+    middleName?: string
+    lastName: string
+    phone: string
     email: string
     password: string
 }
@@ -16,8 +19,8 @@ export interface AuthError {
 }
 
 // Generate a random referral code
-function generateReferralCode(name: string): string {
-    const namePrefix = name.substring(0, 3).toUpperCase()
+function generateReferralCode(firstName: string, lastName: string): string {
+    const namePrefix = (firstName.substring(0, 2) + lastName.substring(0, 1)).toUpperCase()
     const random = Math.random().toString(36).substring(2, 8).toUpperCase()
     return `${namePrefix}${random}`
 }
@@ -26,7 +29,7 @@ export const authService = {
     /**
      * Sign up a new user
      */
-    async signup({ name, email, password }: SignupData) {
+    async signup({ firstName, middleName, lastName, phone, email, password }: SignupData) {
         const supabase = createClient()
 
         // Sign up with Supabase Auth
@@ -35,7 +38,9 @@ export const authService = {
             password,
             options: {
                 data: {
-                    name,
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone: phone,
                 },
                 emailRedirectTo: `${window.location.origin}/auth/callback`,
             },
@@ -45,21 +50,22 @@ export const authService = {
 
         // Create creator profile
         if (authData.user) {
-            const referralCode = generateReferralCode(name)
-            // Generate placeholder phone from user ID
-            const placeholderPhone = `PH${authData.user.id.substring(0, 8).toUpperCase()}`
+            const referralCode = generateReferralCode(firstName, lastName)
 
             const { error: profileError } = await supabase
                 .from('creators')
                 .insert([
                     {
                         id: authData.user.id,
-                        phone: placeholderPhone,
-                        name,
+                        phone: phone,
+                        first_name: firstName,
+                        middle_name: middleName || null,
+                        last_name: lastName,
                         email,
                         password_hash: 'managed_by_supabase_auth',
                         referral_code: referralCode,
                         status: 'active',
+                        role: 'creator',
                     },
                 ])
 
@@ -122,10 +128,16 @@ export const authService = {
      */
     async signInWithGoogle() {
         const supabase = createClient()
+
+        // Use current origin for redirect (works for both localhost and production)
+        const redirectUrl = typeof window !== 'undefined'
+            ? `${window.location.origin}/auth/callback`
+            : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`
+
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: redirectUrl,
                 queryParams: {
                     access_type: 'offline',
                     prompt: 'consent',
