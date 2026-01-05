@@ -124,8 +124,8 @@ export const authService = {
     },
 
     /**
-     * Sign in with Google OAuth
-     */
+   * Sign in with Google OAuth
+   */
     async signInWithGoogle() {
         const supabase = createClient()
 
