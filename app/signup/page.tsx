@@ -9,23 +9,47 @@ import { Label } from "@/components/ui/label"
 import { Container } from "@/components/layout/container"
 
 export default function SignupPage() {
-    const { signup, signInWithGoogle, loading, error } = useAuth()
-    const [name, setName] = useState("")
+    const { signup, signInWithGoogle, loading, error: authError } = useAuth()
+    const [firstName, setFirstName] = useState("")
+    const [middleName, setMiddleName] = useState("")
+    const [lastName, setLastName] = useState("")
+    const [phone, setPhone] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [validationError, setValidationError] = useState<string | null>(null)
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault()
+        setValidationError(null)
 
-        // Validate password length
+        // Validation
+        if (!firstName.trim()) {
+            setValidationError("First name is required")
+            return
+        }
+        if (!lastName.trim()) {
+            setValidationError("Last name is required")
+            return
+        }
+        if (!phone.trim()) {
+            setValidationError("Phone number is required")
+            return
+        }
+        // Basic phone validation (Philippine format)
+        const phoneRegex = /^(\+63|0)?9\d{9}$/
+        if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+            setValidationError("Please enter a valid Philippine phone number (e.g., 09123456789)")
+            return
+        }
         if (password.length < 6) {
+            setValidationError("Password must be at least 6 characters")
             return
         }
 
         try {
-            await signup({ name, email, password }, () => {
+            await signup({ firstName, middleName, lastName, phone, email, password }, () => {
                 // Show success message briefly before redirect
                 setSuccess(true)
                 setTimeout(() => {
@@ -36,6 +60,8 @@ export default function SignupPage() {
             // Error is handled by the hook
         }
     }
+
+    const error = authError || validationError
 
     return (
         <div className="min-h-screen bg-white flex items-center justify-center p-6">
@@ -79,17 +105,58 @@ export default function SignupPage() {
                                     </div>
                                 )}
 
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="firstName">First Name</Label>
+                                        <Input
+                                            id="firstName"
+                                            type="text"
+                                            placeholder="Juan"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="middleName">Middle Name (Optional)</Label>
+                                        <Input
+                                            id="middleName"
+                                            type="text"
+                                            placeholder="Santos"
+                                            value={middleName}
+                                            onChange={(e) => setMiddleName(e.target.value)}
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lastName">Last Name</Label>
+                                        <Input
+                                            id="lastName"
+                                            type="text"
+                                            placeholder="Dela Cruz"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            required
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
-                                    <Label htmlFor="name">Full Name</Label>
+                                    <Label htmlFor="phone">Phone Number</Label>
                                     <Input
-                                        id="name"
-                                        type="text"
-                                        placeholder="Juan Dela Cruz"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
+                                        id="phone"
+                                        type="tel"
+                                        placeholder="09123456789"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
                                         required
                                         disabled={loading}
                                     />
+                                    <p className="text-xs text-zinc-500">
+                                        Philippine mobile number (e.g., 09123456789)
+                                    </p>
                                 </div>
 
                                 <div className="space-y-2">
@@ -116,7 +183,6 @@ export default function SignupPage() {
                                             onChange={(e) => setPassword(e.target.value)}
                                             required
                                             disabled={loading}
-                                            minLength={6}
                                             className="pr-12"
                                         />
                                         <button

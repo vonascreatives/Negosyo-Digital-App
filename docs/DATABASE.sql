@@ -1,8 +1,10 @@
 -- Users table (creators/agents)
 CREATE TABLE creators (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  phone VARCHAR(20) UNIQUE NOT NULL,
-  name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) UNIQUE,
+  first_name VARCHAR(50) NOT NULL,
+  middle_name VARCHAR(50),
+  last_name VARCHAR(50) NOT NULL,
   email VARCHAR(100),
   password_hash TEXT NOT NULL, -- Hashed password for Supabase Auth
   referral_code VARCHAR(20) UNIQUE NOT NULL,
@@ -10,6 +12,7 @@ CREATE TABLE creators (
   balance DECIMAL(8,2) DEFAULT 0,
   total_earnings DECIMAL(8,2) DEFAULT 0,
   status VARCHAR(20) DEFAULT 'pending', -- pending, active, suspended
+  role VARCHAR(20) DEFAULT 'creator', -- creator, admin
   payout_method VARCHAR(50),
   payout_details TEXT,
   created_at TIMESTAMP DEFAULT NOW(),
