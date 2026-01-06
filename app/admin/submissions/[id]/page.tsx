@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PhotoLightbox } from "@/components/PhotoLightbox"
 import { useAdminAuth, useSubmission, useSubmissionStatus } from "@/hooks/useAdmin"
 import { createClient } from "@/lib/supabase/client"
 import type { SubmissionStatus } from "@/types/database"
@@ -23,6 +24,19 @@ export default function SubmissionDetailPage() {
     const [showModal, setShowModal] = useState(false)
     const [modalMessage, setModalMessage] = useState('')
     const [modalType, setModalType] = useState<'success' | 'error'>('success')
+
+    // Lightbox state
+    const [lightboxOpen, setLightboxOpen] = useState(false)
+    const [lightboxIndex, setLightboxIndex] = useState(0)
+
+    // Quality checklist state
+    const [qualityChecklist, setQualityChecklist] = useState({
+        hasPhotos: false,
+        hasAudioVideo: false,
+        hasTranscript: false,
+        businessInfoComplete: false,
+        contactInfoComplete: false,
+    })
 
     // Edit mode states
     const [isEditing, setIsEditing] = useState(false)
@@ -131,6 +145,29 @@ export default function SubmissionDetailPage() {
             setShowModal(true)
         }
     }
+
+    // Auto-populate quality checklist
+    useEffect(() => {
+        if (submission) {
+            setQualityChecklist({
+                hasPhotos: (submission.photos?.length || 0) > 0,
+                hasAudioVideo: !!(submission.audio_url || submission.video_url),
+                hasTranscript: !!submission.transcript,
+                businessInfoComplete: !!(
+                    submission.business_name &&
+                    submission.business_type &&
+                    submission.owner_name &&
+                    submission.owner_phone &&
+                    submission.address &&
+                    submission.city
+                ),
+                contactInfoComplete: !!(
+                    submission.owner_phone &&
+                    (submission.owner_email || submission.owner_phone)
+                ),
+            })
+        }
+    }, [submission])
 
     if (authLoading || dataLoading) {
         return (
@@ -336,7 +373,16 @@ export default function SubmissionDetailPage() {
                             </div>
                             <div className="grid grid-cols-3 gap-4">
                                 {(isEditing ? editedData.photos : (submission.photos || [])).map((url, index) => (
-                                    <div key={index} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group">
+                                    <div
+                                        key={index}
+                                        className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer"
+                                        onClick={() => {
+                                            if (!isEditing) {
+                                                setLightboxIndex(index)
+                                                setLightboxOpen(true)
+                                            }
+                                        }}
+                                    >
                                         <Image
                                             src={url}
                                             alt={`Photo ${index + 1}`}
@@ -345,7 +391,10 @@ export default function SubmissionDetailPage() {
                                         />
                                         {isEditing && (
                                             <button
-                                                onClick={() => removePhoto(index)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    removePhoto(index)
+                                                }}
                                                 className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                                                 type="button"
                                             >
@@ -353,6 +402,13 @@ export default function SubmissionDetailPage() {
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                             </button>
+                                        )}
+                                        {!isEditing && (
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m0 0v6m0-6h6m-6 0H4" />
+                                                </svg>
+                                            </div>
                                         )}
                                     </div>
                                 ))}
@@ -445,6 +501,73 @@ export default function SubmissionDetailPage() {
                             </div>
                         </div>
 
+                        {/* Quality Checklist */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Quality Checklist</h2>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasPhotos ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasPhotos && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasPhotos ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Photos ({submission.photos?.length || 0})
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasAudioVideo ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasAudioVideo && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasAudioVideo ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Audio/Video
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasTranscript ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasTranscript && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasTranscript ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Transcript
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.businessInfoComplete ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.businessInfoComplete && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.businessInfoComplete ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Business Info Complete
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.contactInfoComplete ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.contactInfoComplete && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.contactInfoComplete ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Contact Info Complete
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Creator Info */}
                         {creator && (
                             <div className="bg-white rounded-xl p-6 border border-gray-200">
@@ -510,6 +633,15 @@ export default function SubmissionDetailPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Photo Lightbox */}
+            {lightboxOpen && submission.photos && submission.photos.length > 0 && (
+                <PhotoLightbox
+                    photos={submission.photos}
+                    initialIndex={lightboxIndex}
+                    onClose={() => setLightboxOpen(false)}
+                />
             )}
         </div>
     )
