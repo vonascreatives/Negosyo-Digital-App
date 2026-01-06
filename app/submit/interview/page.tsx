@@ -37,6 +37,7 @@ export default function InterviewUploadPage() {
     const [showReminderModal, setShowReminderModal] = useState(false)
     const [hasSeenReminder, setHasSeenReminder] = useState(false)
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
+    const [cameraInitializing, setCameraInitializing] = useState(false)
 
     // Quality feedback
     const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'checking'>('checking')
@@ -96,6 +97,7 @@ export default function InterviewUploadPage() {
 
     // Start camera/microphone
     const startCamera = async () => {
+        setCameraInitializing(true)
         try {
             const constraints = interviewType === 'video'
                 ? { video: { facingMode: facingMode, width: 1280, height: 720 }, audio: true }
@@ -106,16 +108,34 @@ export default function InterviewUploadPage() {
 
             if (videoRef.current && interviewType === 'video') {
                 videoRef.current.srcObject = stream
-                videoRef.current.play()
+
+                // Ensure video plays
+                try {
+                    await videoRef.current.play()
+                } catch (playErr) {
+                    console.error('Error playing video:', playErr)
+                }
 
                 // Start quality analysis
                 startQualityAnalysis()
+            } else if (interviewType === 'video') {
+                // Video ref not ready, wait a bit and try again
+                console.warn('Video element not ready, retrying...')
+                setTimeout(() => {
+                    if (videoRef.current && streamRef.current) {
+                        videoRef.current.srcObject = streamRef.current
+                        videoRef.current.play().catch(err => console.error('Retry play error:', err))
+                        startQualityAnalysis()
+                    }
+                }, 100)
             }
 
+            setCameraInitializing(false)
             return stream
         } catch (err) {
             console.error('Error accessing media devices:', err)
             setError('Unable to access camera/microphone. Please grant permissions.')
+            setCameraInitializing(false)
             throw err
         }
     }
@@ -346,7 +366,7 @@ export default function InterviewUploadPage() {
         }
     }
 
-    const retakeRecording = () => {
+    const retakeRecording = async () => {
         // Clean up preview
         if (recordedPreviewUrl) {
             URL.revokeObjectURL(recordedPreviewUrl)
@@ -356,6 +376,17 @@ export default function InterviewUploadPage() {
         setRecordingState('idle')
         setRecordingTime(0)
         setCurrentQuestion(0)
+        setError(null) // Clear any previous errors
+
+        // Restart camera preview so user can flip cameras before recording again
+        if (interviewType === 'video') {
+            try {
+                await startCamera()
+            } catch (err) {
+                console.error('Failed to start camera after retake:', err)
+                setError('Failed to start camera. Please try again or check permissions.')
+            }
+        }
     }
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -774,7 +805,7 @@ export default function InterviewUploadPage() {
                                                 </div>
                                             )}
 
-                                            {!streamRef.current && recordingState === 'idle' && (
+                                            {!streamRef.current && recordingState === 'idle' && !cameraInitializing && (
                                                 <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
                                                     <div className="text-center text-white">
                                                         <div className="w-20 h-20 mx-auto mb-4 bg-white/10 rounded-full flex items-center justify-center">
