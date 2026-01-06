@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useAdminAuth, useSubmissions } from "@/hooks/useAdmin"
 import type { SubmissionStatus } from "@/types/database"
 
@@ -13,6 +14,9 @@ export default function AdminDashboard() {
     const { isAdmin, loading: authLoading } = useAdminAuth()
     const { submissions, loading: submissionsLoading, refresh } = useSubmissions()
     const [filter, setFilter] = useState<string>('all')
+    const [searchQuery, setSearchQuery] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 10
 
     const handleLogout = async () => {
         const supabase = createClient()
@@ -20,9 +24,44 @@ export default function AdminDashboard() {
         router.push('/login')
     }
 
-    const filteredSubmissions = filter === 'all'
-        ? submissions
-        : submissions.filter(s => s.status === filter)
+    // Filter and search submissions
+    const filteredSubmissions = useMemo(() => {
+        let result = submissions
+
+        // Apply status filter
+        if (filter !== 'all') {
+            result = result.filter(s => s.status === filter)
+        }
+
+        // Apply search
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase()
+            result = result.filter(s =>
+                s.business_name.toLowerCase().includes(query) ||
+                s.owner_name.toLowerCase().includes(query) ||
+                s.business_type.toLowerCase().includes(query)
+            )
+        }
+
+        return result
+    }, [submissions, filter, searchQuery])
+
+    // Pagination
+    const totalPages = Math.ceil(filteredSubmissions.length / itemsPerPage)
+    const paginatedSubmissions = filteredSubmissions.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    )
+
+    // Reset to page 1 when filter or search changes
+    useMemo(() => {
+        setCurrentPage(1)
+    }, [filter, searchQuery])
+
+    // Needs attention items
+    const needsAttention = submissions.filter(s =>
+        s.status === 'submitted' || s.status === 'in_review'
+    )
 
     const getStatusBadge = (status: string) => {
         const styles = {
@@ -95,6 +134,55 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Needs Attention Alert */}
+                {needsAttention.length > 0 && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-xl">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                            </div>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-yellow-800">
+                                    {needsAttention.length} submission{needsAttention.length !== 1 ? 's' : ''} need{needsAttention.length === 1 ? 's' : ''} your attention
+                                </p>
+                                <p className="text-xs text-yellow-700 mt-1">
+                                    {submissions.filter(s => s.status === 'submitted').length} new submissions, {submissions.filter(s => s.status === 'in_review').length} in review
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Search Bar */}
+                <div className="bg-white rounded-xl p-4 border border-gray-200 mb-6">
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <Input
+                            type="text"
+                            placeholder="Search by business name, owner, or type..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                            >
+                                <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 {/* Filters */}
                 <div className="bg-white rounded-xl p-4 border border-gray-200 mb-6">
                     <div className="flex gap-2 overflow-x-auto">
@@ -103,8 +191,8 @@ export default function AdminDashboard() {
                                 key={status}
                                 onClick={() => setFilter(status)}
                                 className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${filter === status
-                                        ? 'bg-green-500 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
@@ -143,14 +231,14 @@ export default function AdminDashboard() {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredSubmissions.length === 0 ? (
+                                {paginatedSubmissions.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                                            No submissions found
+                                            {searchQuery ? 'No submissions match your search' : 'No submissions found'}
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredSubmissions.map((submission: any) => (
+                                    paginatedSubmissions.map((submission: any) => (
                                         <tr key={submission.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
@@ -193,6 +281,70 @@ export default function AdminDashboard() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+                            <div className="flex-1 flex justify-between sm:hidden">
+                                <Button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                <div>
+                                    <p className="text-sm text-gray-700">
+                                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                                        <span className="font-medium">
+                                            {Math.min(currentPage * itemsPerPage, filteredSubmissions.length)}
+                                        </span> of{' '}
+                                        <span className="font-medium">{filteredSubmissions.length}</span> results
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        variant="outline"
+                                        size="sm"
+                                    >
+                                        Previous
+                                    </Button>
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                                        <Button
+                                            key={page}
+                                            onClick={() => setCurrentPage(page)}
+                                            variant={currentPage === page ? "default" : "outline"}
+                                            size="sm"
+                                            className={currentPage === page ? "bg-green-500 hover:bg-green-600" : ""}
+                                        >
+                                            {page}
+                                        </Button>
+                                    ))}
+                                    <Button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        variant="outline"
+                                        size="sm"
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
