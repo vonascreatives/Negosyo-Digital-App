@@ -34,6 +34,9 @@ export default function InterviewUploadPage() {
     const [recordedChunks, setRecordedChunks] = useState<Blob[]>([])
     const [recordingTime, setRecordingTime] = useState(0)
     const [recordedPreviewUrl, setRecordedPreviewUrl] = useState<string | null>(null)
+    const [showReminderModal, setShowReminderModal] = useState(false)
+    const [hasSeenReminder, setHasSeenReminder] = useState(false)
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user')
 
     // Quality feedback
     const [lightingQuality, setLightingQuality] = useState<'good' | 'poor' | 'checking'>('checking')
@@ -95,7 +98,7 @@ export default function InterviewUploadPage() {
     const startCamera = async () => {
         try {
             const constraints = interviewType === 'video'
-                ? { video: { facingMode: 'user', width: 1280, height: 720 }, audio: true }
+                ? { video: { facingMode: facingMode, width: 1280, height: 720 }, audio: true }
                 : { audio: true }
 
             const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -219,7 +222,60 @@ export default function InterviewUploadPage() {
         return { hasContent, isCentered }
     }
 
+    // Flip camera
+    const flipCamera = async () => {
+        const newFacingMode = facingMode === 'user' ? 'environment' : 'user'
+        const previousFacingMode = facingMode
+
+        try {
+            setFacingMode(newFacingMode)
+
+            // Restart camera with new facing mode
+            if (streamRef.current) {
+                stopCamera()
+                await startCamera()
+            }
+        } catch (err) {
+            // Revert to previous facing mode if camera switch fails
+            setFacingMode(previousFacingMode)
+
+            // Show error message
+            const cameraType = newFacingMode === 'environment' ? 'back' : 'front'
+            setError(`This device doesn't have a ${cameraType} camera. Using ${previousFacingMode === 'user' ? 'front' : 'back'} camera instead.`)
+
+            // Clear error after 3 seconds
+            setTimeout(() => setError(null), 3000)
+
+            // Restart with previous camera
+            try {
+                await startCamera()
+            } catch (restartErr) {
+                console.error('Failed to restart camera:', restartErr)
+            }
+        }
+    }
+
     // Recording controls
+    const initiateRecording = () => {
+        // Show reminder modal only if user hasn't seen it yet
+        if (!hasSeenReminder) {
+            setShowReminderModal(true)
+        } else {
+            // If already seen, start recording directly
+            startRecording()
+        }
+    }
+
+    const handleReminderClose = async () => {
+        setShowReminderModal(false)
+        setHasSeenReminder(true)
+
+        // Start camera preview so user can see and flip cameras before recording
+        if (interviewType === 'video') {
+            await startCamera()
+        }
+    }
+
     const startRecording = async () => {
         try {
             const stream = streamRef.current || await startCamera()
@@ -646,8 +702,29 @@ export default function InterviewUploadPage() {
                                                             )}
                                                         </div>
 
-                                                        <div className="px-3 py-2 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium">
-                                                            {currentQuestion + 1}/{INTERVIEW_QUESTIONS.length}
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <div className="px-3 py-2 bg-black/60 backdrop-blur-sm text-white rounded-full text-xs font-medium">
+                                                                {currentQuestion + 1}/{INTERVIEW_QUESTIONS.length}
+                                                            </div>
+
+                                                            {/* Flip Camera Button */}
+                                                            <button
+                                                                onClick={flipCamera}
+                                                                disabled={recordingState === 'recording' || recordingState === 'paused'}
+                                                                className={`p-2 bg-black/60 backdrop-blur-sm rounded-full transition-colors ${recordingState === 'recording' || recordingState === 'paused'
+                                                                    ? 'opacity-50 cursor-not-allowed'
+                                                                    : 'hover:bg-black/80'
+                                                                    }`}
+                                                                title={
+                                                                    recordingState === 'recording' || recordingState === 'paused'
+                                                                        ? 'Cannot flip camera while recording'
+                                                                        : facingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'
+                                                                }
+                                                            >
+                                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                </svg>
+                                                            </button>
                                                         </div>
                                                     </div>
 
@@ -772,7 +849,7 @@ export default function InterviewUploadPage() {
                                 <div className="flex justify-center items-center gap-4 py-4">
                                     {recordingState === 'idle' && (
                                         <button
-                                            onClick={startRecording}
+                                            onClick={initiateRecording}
                                             className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 flex items-center justify-center shadow-2xl shadow-red-500/40 transition-all active:scale-95"
                                         >
                                             <div className="w-8 h-8 rounded-full bg-white"></div>
@@ -890,6 +967,80 @@ export default function InterviewUploadPage() {
                     </>
                 )}
             </div>
+
+            {/* Pre-Recording Reminder Modal */}
+            {showReminderModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="text-center mb-6">
+                            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to Record?</h3>
+                            <p className="text-sm text-gray-500">Follow these tips for the best interview</p>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <div className="flex gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">Find good lighting</h4>
+                                    <p className="text-xs text-gray-600">Face a window or light source. Avoid backlighting.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">Choose a quiet place</h4>
+                                    <p className="text-xs text-gray-600">Minimize background noise for clear audio.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">Position yourself well</h4>
+                                    <p className="text-xs text-gray-600">Center your face in the frame at eye level.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold text-gray-900 text-sm">Be yourself</h4>
+                                    <p className="text-xs text-gray-600">Speak naturally and tell your story with passion!</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleReminderClose}
+                            className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-500/30"
+                        >
+                            Got it!
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
