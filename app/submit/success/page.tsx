@@ -10,12 +10,17 @@ export default function SubmissionSuccessPage() {
     const router = useRouter()
     const [payout, setPayout] = useState<number | null>(null)
     const [submissionId, setSubmissionId] = useState<string | null>(null)
+    const [transcribing, setTranscribing] = useState(false)
+    const [transcriptionComplete, setTranscriptionComplete] = useState(false)
+    const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
 
     useEffect(() => {
         const id = sessionStorage.getItem('current_submission_id')
         if (id) {
             setSubmissionId(id)
             fetchPayout(id)
+            // Trigger transcription automatically
+            triggerTranscription(id)
             // Clear session storage so user can start fresh next time
             sessionStorage.removeItem('current_submission_id')
         }
@@ -35,6 +40,57 @@ export default function SubmissionSuccessPage() {
             }
         } catch (err) {
             console.error('Error fetching payout:', err)
+        }
+    }
+
+    const triggerTranscription = async (id: string) => {
+        try {
+            setTranscribing(true)
+            setTranscriptionError(null)
+
+            // Get submission to find audio/video URL
+            const supabase = createClient()
+            const { data: submission } = await supabase
+                .from('submissions')
+                .select('audio_url, video_url')
+                .eq('id', id)
+                .single()
+
+            if (!submission) {
+                throw new Error('Submission not found')
+            }
+
+            const audioUrl = submission.audio_url || submission.video_url
+            if (!audioUrl) {
+                console.log('No audio/video to transcribe')
+                setTranscribing(false)
+                return
+            }
+
+            // Call transcription API
+            console.log('Starting transcription for submission:', id)
+            const res = await fetch('/api/transcribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    audioUrl,
+                    submissionId: id
+                }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Transcription failed')
+            }
+
+            console.log('Transcription complete:', data.transcript?.substring(0, 100) + '...')
+            setTranscriptionComplete(true)
+        } catch (err: any) {
+            console.error('Transcription error:', err)
+            setTranscriptionError(err.message || 'Failed to transcribe audio')
+        } finally {
+            setTranscribing(false)
         }
     }
 
@@ -68,6 +124,43 @@ export default function SubmissionSuccessPage() {
                     </div>
 
                     <div className="space-y-3 text-left">
+                        {/* Transcription Status */}
+                        {(transcribing || transcriptionComplete || transcriptionError) && (
+                            <div className={`flex items-start gap-3 p-3 rounded-lg ${transcribing ? 'bg-blue-50' :
+                                    transcriptionComplete ? 'bg-green-50' :
+                                        'bg-red-50'
+                                }`}>
+                                <div className="flex-shrink-0 mt-0.5">
+                                    {transcribing && (
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                    )}
+                                    {transcriptionComplete && (
+                                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    )}
+                                    {transcriptionError && (
+                                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <p className={`text-sm font-medium ${transcribing ? 'text-blue-900' :
+                                            transcriptionComplete ? 'text-green-900' :
+                                                'text-red-900'
+                                        }`}>
+                                        {transcribing && 'AI is transcribing your interview...'}
+                                        {transcriptionComplete && 'Interview transcribed successfully!'}
+                                        {transcriptionError && 'Transcription failed'}
+                                    </p>
+                                    {transcriptionError && (
+                                        <p className="text-xs text-red-600 mt-1">{transcriptionError}</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-start gap-3">
                             <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
                                 <span className="text-xs font-bold">1</span>
