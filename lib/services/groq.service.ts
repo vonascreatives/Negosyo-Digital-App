@@ -1,8 +1,18 @@
 import Groq from "groq-sdk"
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-})
+// Lazy-load Groq client to avoid build-time errors
+let groqInstance: Groq | null = null
+
+function getGroqClient(): Groq {
+    if (!groqInstance) {
+        const apiKey = process.env.GROQ_API_KEY
+        if (!apiKey) {
+            throw new Error('GROQ_API_KEY environment variable is not set')
+        }
+        groqInstance = new Groq({ apiKey })
+    }
+    return groqInstance
+}
 
 export const groqService = {
     /**
@@ -10,6 +20,7 @@ export const groqService = {
      */
     async transcribeAudio(audioFile: File): Promise<string> {
         try {
+            const groq = getGroqClient()
             const transcription = await groq.audio.transcriptions.create({
                 file: audioFile,
                 model: "whisper-large-v3",
@@ -71,6 +82,7 @@ IMPORTANT:
 - Highlights should emphasize unique selling points
 - Return ONLY valid JSON, no additional text`
 
+            const groq = getGroqClient()
             const completion = await groq.chat.completions.create({
                 messages: [
                     {
@@ -123,6 +135,7 @@ Create a complete HTML page with:
 
 Return ONLY the complete HTML code, starting with <!DOCTYPE html>`
 
+            const groq = getGroqClient()
             const completion = await groq.chat.completions.create({
                 messages: [
                     {
