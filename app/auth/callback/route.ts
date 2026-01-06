@@ -88,18 +88,28 @@ export async function GET(request: Request) {
                     console.log('✅ Creator profile created successfully:')
                 }
             } else {
-                console.error('Creator profile already exists', existingCreator)
+                console.log('Creator profile already exists', existingCreator)
             }
+
+            // Check user role and redirect accordingly
+            const { data: creatorRole } = await supabase
+                .from('creators')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            const redirectPath = creatorRole?.role === 'admin' ? '/admin' : '/dashboard'
+            console.log('OAuth redirect:', { role: creatorRole?.role, path: redirectPath })
 
             const forwardedHost = request.headers.get('x-forwarded-host')
             const isLocalEnv = process.env.NODE_ENV === 'development'
 
             if (isLocalEnv) {
-                return NextResponse.redirect(`${origin}${next}`)
+                return NextResponse.redirect(`${origin}${redirectPath}`)
             } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`)
+                return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`)
             } else {
-                return NextResponse.redirect(`${origin}${next}`)
+                return NextResponse.redirect(`${origin}${redirectPath}`)
             }
         } catch (error) {
             console.error('=== AUTH CALLBACK FATAL ERROR ===')

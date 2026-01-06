@@ -133,3 +133,44 @@ USING (auth.uid()::text = creator_id::text);
 CREATE POLICY "Creators can delete own draft submissions" 
 ON submissions FOR DELETE 
 USING (auth.uid()::text = creator_id::text AND status = 'draft');
+
+-- ==========================================
+-- ADMIN POLICIES
+-- ==========================================
+
+-- Helper function to check if user is admin
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM creators 
+    WHERE id::text = auth.uid()::text 
+    AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Allow admins to view all creators
+CREATE POLICY "Admins can view all creators" 
+ON creators FOR SELECT 
+USING (is_admin());
+
+-- Allow admins to update any creator
+CREATE POLICY "Admins can update any creator" 
+ON creators FOR UPDATE 
+USING (is_admin());
+
+-- Allow admins to view all submissions
+CREATE POLICY "Admins can view all submissions" 
+ON submissions FOR SELECT 
+USING (is_admin());
+
+-- Allow admins to update any submission
+CREATE POLICY "Admins can update any submission" 
+ON submissions FOR UPDATE 
+USING (is_admin());
+
+-- Allow admins to delete any submission
+CREATE POLICY "Admins can delete any submission" 
+ON submissions FOR DELETE 
+USING (is_admin());
