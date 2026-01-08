@@ -88,7 +88,7 @@ export async function GET(request: Request) {
                     console.log('✅ Creator profile created successfully:')
                 }
             } else {
-                console.log('Creator profile already exists', existingCreator)
+                console.log('Creator profile already exists')
             }
 
             // Check user role and redirect accordingly
@@ -99,7 +99,6 @@ export async function GET(request: Request) {
                 .single()
 
             const redirectPath = creatorRole?.role === 'admin' ? '/admin' : '/dashboard'
-            console.log('OAuth redirect:', { role: creatorRole?.role, path: redirectPath })
 
             const forwardedHost = request.headers.get('x-forwarded-host')
             const isLocalEnv = process.env.NODE_ENV === 'development'

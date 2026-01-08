@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
         }
 
         // Step 1: Transcribe audio
-        console.log('Step 1: Transcribing audio...')
         const transcript = await groqService.transcribeAudioFromUrl(audioUrl)
 
         // Update with transcript
@@ -51,11 +50,9 @@ export async function POST(request: NextRequest) {
             .eq('id', submissionId)
 
         // Step 2: Extract business content
-        console.log('Step 2: Extracting business content...')
         const businessContent = await groqService.extractBusinessContent(transcript)
 
         // Step 3: Generate website
-        console.log('Step 3: Generating website...')
         const websiteHtml = await groqService.generateWebsite(businessContent, {
             name: submission.business_name,
             type: submission.business_type,

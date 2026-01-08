@@ -174,3 +174,7 @@ USING (is_admin());
 CREATE POLICY "Admins can delete any submission" 
 ON submissions FOR DELETE 
 USING (is_admin());
+
+UPDATE creators 
+SET role = 'admin' 
+WHERE email = 'your@email.com';

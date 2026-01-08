@@ -20,9 +20,7 @@ export default function ResetPasswordPage() {
     // Check if user has a valid session from the email link
     useEffect(() => {
         const checkSession = async () => {
-            console.log('=== CHECKING RESET PASSWORD SESSION ===')
-            console.log('Current URL:', window.location.href)
-            console.log('Hash params:', window.location.hash)
+
 
             try {
                 const supabase = createClient()
@@ -33,15 +31,9 @@ export default function ResetPasswordPage() {
                 const refreshToken = hashParams.get('refresh_token')
                 const type = hashParams.get('type')
 
-                console.log('Hash parameters:', {
-                    hasAccessToken: !!accessToken,
-                    hasRefreshToken: !!refreshToken,
-                    type: type
-                })
 
                 // If we have tokens from the email link, set the session
                 if (accessToken && type === 'recovery') {
-                    console.log('Recovery tokens found in URL, setting session...')
 
                     const { data, error } = await supabase.auth.setSession({
                         access_token: accessToken,
@@ -55,7 +47,6 @@ export default function ResetPasswordPage() {
                         return
                     }
 
-                    console.log('✅ Session set from recovery tokens')
                     // Clear the hash from URL for security
                     window.history.replaceState(null, '', window.location.pathname)
                     setSessionChecking(false)
@@ -65,7 +56,6 @@ export default function ResetPasswordPage() {
                 // Otherwise check for existing session
                 const { data: { session }, error } = await supabase.auth.getSession()
 
-                console.log('Session check:', { session: session ? 'exists' : 'missing', error })
 
                 if (error) {
                     console.error('Session error:', error)
@@ -81,7 +71,6 @@ export default function ResetPasswordPage() {
                     return
                 }
 
-                console.log('✅ Valid session found')
                 setSessionChecking(false)
             } catch (err) {
                 console.error('Session check error:', err)
@@ -98,9 +87,7 @@ export default function ResetPasswordPage() {
         setLoading(true)
         setError(null)
 
-        console.log('=== PASSWORD RESET ATTEMPT ===')
-        console.log('Password length:', password.length)
-        console.log('Passwords match:', password === confirmPassword)
+
 
         // Validation
         if (password.length < 6) {
@@ -120,13 +107,11 @@ export default function ResetPasswordPage() {
 
             // Double-check session before updating
             const { data: { session } } = await supabase.auth.getSession()
-            console.log('Session before update:', session ? 'exists' : 'missing')
 
             if (!session) {
                 throw new Error('Auth session is missing! Please click the reset link from your email again.')
             }
 
-            console.log('Updating password...')
             const { error } = await supabase.auth.updateUser({
                 password: password
             })
@@ -136,7 +121,6 @@ export default function ResetPasswordPage() {
                 throw error
             }
 
-            console.log('✅ Password updated successfully!')
             setSuccess(true)
 
             // Redirect to login after 2 seconds
@@ -148,7 +132,6 @@ export default function ResetPasswordPage() {
             setError(err.message || 'Failed to reset password')
         } finally {
             setLoading(false)
-            console.log('=== PASSWORD RESET ATTEMPT END ===')
         }
     }
 

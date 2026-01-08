@@ -62,13 +62,11 @@ export default function SubmissionSuccessPage() {
 
             const audioUrl = submission.audio_url || submission.video_url
             if (!audioUrl) {
-                console.log('No audio/video to transcribe')
                 setTranscribing(false)
                 return
             }
 
             // Call transcription API
-            console.log('Starting transcription for submission:', id)
             const res = await fetch('/api/transcribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -84,7 +82,6 @@ export default function SubmissionSuccessPage() {
                 throw new Error(data.error || 'Transcription failed')
             }
 
-            console.log('Transcription complete:', data.transcript?.substring(0, 100) + '...')
             setTranscriptionComplete(true)
         } catch (err: any) {
             console.error('Transcription error:', err)

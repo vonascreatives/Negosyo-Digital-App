@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
         }
 
         // Extract business content from transcript
-        console.log('Extracting content from transcript...')
         const businessContent = await groqService.extractBusinessContent(transcript)
 
         // If submissionId provided, also generate website
@@ -38,7 +37,6 @@ export async function POST(request: NextRequest) {
             }
 
             // Generate website HTML
-            console.log('Generating website...')
             const websiteHtml = await groqService.generateWebsite(businessContent, {
                 name: submission.business_name,
                 type: submission.business_type,

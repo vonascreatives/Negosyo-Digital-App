@@ -44,14 +44,10 @@ export default function LoginPage() {
                     return
                 }
 
-                console.log('User role:', creator?.role) // Debug log
-
                 // Redirect based on role
                 if (creator?.role === 'admin') {
-                    console.log('Redirecting to admin dashboard')
                     router.push('/admin')
                 } else {
-                    console.log('Redirecting to creator dashboard')
                     router.push('/dashboard')
                 }
             }

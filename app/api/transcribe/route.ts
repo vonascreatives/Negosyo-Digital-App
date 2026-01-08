@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
         }
 
         // Transcribe audio
-        console.log('Transcribing audio from:', audioUrl)
         const transcript = await groqService.transcribeAudioFromUrl(audioUrl)
 
         // Update submission with transcript if submissionId provided
