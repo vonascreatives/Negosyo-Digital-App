@@ -25,7 +25,7 @@ export type TemplateName = keyof typeof templates
 export function selectTemplateForBusinessType(businessType: string): TemplateName {
     // Find template that suits this business type
     for (const [key, template] of Object.entries(templates)) {
-        if (template.suitableFor.includes(businessType.toLowerCase())) {
+        if ((template.suitableFor as readonly string[]).includes(businessType.toLowerCase())) {
             return key as TemplateName
         }
     }
