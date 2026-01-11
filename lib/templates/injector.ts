@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { generateHeroHtml } from './hero-styles'
 
 export interface ExtractedContent {
     business_name: string
@@ -54,6 +55,23 @@ export function injectContent(
     photos?: string[]
 ): string {
     const $ = cheerio.load(templateHtml)
+
+    // 0. Apply Hero Style if provided (replaces entire hero section)
+    if (customizations?.heroStyle) {
+        const heroHtml = generateHeroHtml(customizations.heroStyle, {
+            businessName: content.business_name,
+            tagline: content.tagline,
+            about: content.about,
+            heroCta: content.hero_cta,
+            photos: photos || []
+        })
+
+        // Find and replace the hero section (first child div of main)
+        const $heroSection = $('main > div').first()
+        if ($heroSection.length) {
+            $heroSection.replaceWith(heroHtml)
+        }
+    }
 
     // 1. Replace page title
     $('title').text(`${content.business_name} - ${content.tagline}`)
