@@ -73,6 +73,7 @@ export default function SubmissionDetailPage() {
     const [websiteContent, setWebsiteContent] = useState<any>(null)
     const [websiteCustomizations, setWebsiteCustomizations] = useState<any>(null)
     const [websiteError, setWebsiteError] = useState<string | null>(null)
+    const [websitePublishedUrl, setWebsitePublishedUrl] = useState<string | null>(null)
     const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview')
 
     const handleEdit = () => {
@@ -222,6 +223,7 @@ export default function SubmissionDetailPage() {
                     setWebsiteHtmlContent(website.html_content)
                     setWebsiteContent(website.extracted_content) // fixed property name
                     setWebsiteCustomizations(website.customizations)
+                    setWebsitePublishedUrl(website.published_url || null)
                     setWebsiteGenerated(true)
                 }
             } catch (error) {
@@ -407,8 +409,10 @@ export default function SubmissionDetailPage() {
                                     htmlContent={websiteHtmlContent || ''}
                                     submissionId={submissionId}
                                     initialCustomizations={websiteCustomizations}
+                                    initialPublishedUrl={websitePublishedUrl}
                                     onUpdateHtml={handleUpdateHtml}
                                     onUpdateCustomizations={handleUpdateCustomizations}
+                                    onPublish={(url) => setWebsitePublishedUrl(url)}
                                 />
                             ) : (
                                 <div className="bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200">
