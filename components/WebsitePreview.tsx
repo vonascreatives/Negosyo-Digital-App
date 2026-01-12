@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Monitor, Smartphone, Palette, Type, Layout } from 'lucide-react'
+import { Monitor, Smartphone, Palette, Type, Layout, Globe, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface WebsitePreviewProps {
@@ -15,13 +15,14 @@ interface WebsitePreviewProps {
         colorSchemeId?: string
         fontPairingId?: string
     }
-    onPublish?: () => void
+    initialPublishedUrl?: string | null
+    onPublish?: (url: string) => void
     onSaveDraft?: () => void
     onUpdateHtml?: (html: string) => void
     onUpdateCustomizations?: (customizations: any) => void
 }
 
-export default function WebsitePreview({ previewUrl, htmlContent, submissionId, initialCustomizations, onPublish, onSaveDraft, onUpdateHtml, onUpdateCustomizations }: WebsitePreviewProps) {
+export default function WebsitePreview({ previewUrl, htmlContent, submissionId, initialCustomizations, initialPublishedUrl, onPublish, onSaveDraft, onUpdateHtml, onUpdateCustomizations }: WebsitePreviewProps) {
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
     const [selectedHeroStyle, setSelectedHeroStyle] = useState(initialCustomizations?.heroStyle || '1')
     // Handle potential array value or missing ID by defaulting to 'auto' if safe check fails
@@ -32,6 +33,10 @@ export default function WebsitePreview({ previewUrl, htmlContent, submissionId, 
     const [selectedFontPairing, setSelectedFontPairing] = useState(initialCustomizations?.fontPairingId || initialCustomizations?.fontPairing || 'modern')
     const [isRegenerating, setIsRegenerating] = useState(false)
     const [currentHtmlContent, setCurrentHtmlContent] = useState(htmlContent)
+
+    // Publishing state
+    const [isPublishing, setIsPublishing] = useState(false)
+    const [publishedUrl, setPublishedUrl] = useState<string | null>(initialPublishedUrl || null)
 
     const handleRegenerate = async () => {
         setIsRegenerating(true)
@@ -97,6 +102,48 @@ export default function WebsitePreview({ previewUrl, htmlContent, submissionId, 
             'dark': ['#1F2937', '#374151', '#4B5563']
         }
         return schemes[scheme] || schemes['blue']
+    }
+
+    // Handle website publishing to Netlify
+    const handlePublish = async () => {
+        setIsPublishing(true)
+        const loadingToast = toast.loading('Publishing website to Netlify...')
+
+        try {
+            const response = await fetch('/api/publish-website', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ submissionId })
+            })
+
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to publish')
+            }
+
+            const data = await response.json()
+            setPublishedUrl(data.url)
+
+            // Notify parent component
+            if (onPublish) {
+                onPublish(data.url)
+            }
+
+            toast.success(
+                <div className="flex flex-col gap-1">
+                    <span className="font-medium">Website published!</span>
+                    <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm">
+                        {data.url}
+                    </a>
+                </div>,
+                { id: loadingToast, duration: 10000 }
+            )
+        } catch (error: any) {
+            console.error('Publish error:', error)
+            toast.error(error.message || 'Failed to publish website', { id: loadingToast })
+        } finally {
+            setIsPublishing(false)
+        }
     }
 
     return (
@@ -196,10 +243,10 @@ export default function WebsitePreview({ previewUrl, htmlContent, submissionId, 
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 mt-4">
+                <div className="flex flex-wrap items-center gap-3 mt-4">
                     <button
                         onClick={handleRegenerate}
-                        disabled={isRegenerating}
+                        disabled={isRegenerating || isPublishing}
                         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
                     >
                         {isRegenerating ? 'Regenerating...' : 'Apply Changes'}
@@ -207,16 +254,33 @@ export default function WebsitePreview({ previewUrl, htmlContent, submissionId, 
 
                     <button
                         onClick={onSaveDraft}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium"
+                        disabled={isPublishing}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
                     >
                         Save Draft
                     </button>
+
                     <button
-                        onClick={onPublish}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium"
+                        onClick={handlePublish}
+                        disabled={isPublishing || isRegenerating}
+                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
                     >
-                        Publish Website
+                        <Globe className="w-4 h-4" />
+                        {isPublishing ? 'Publishing...' : publishedUrl ? 'Republish' : 'Publish Website'}
                     </button>
+
+                    {/* Published URL Display */}
+                    {publishedUrl && (
+                        <a
+                            href={publishedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-md text-sm font-medium hover:bg-green-100 border border-green-200"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            {publishedUrl.replace('https://', '')}
+                        </a>
+                    )}
                 </div>
             </div>
 
