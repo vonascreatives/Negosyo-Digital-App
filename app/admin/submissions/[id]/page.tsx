@@ -1,0 +1,1065 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
+import Image from "next/image"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { PhotoLightbox } from "@/components/PhotoLightbox"
+import WebsitePreview from "@/components/WebsitePreview"
+import VisualEditor from "@/components/editor/VisualEditor"
+import ContentEditor, { EditorCustomizations } from "@/components/ContentEditor"
+import { useAdminAuth, useSubmission, useSubmissionStatus } from "@/hooks/useAdmin"
+import { createClient } from "@/lib/supabase/client"
+import type { SubmissionStatus } from "@/types/database"
+
+export default function SubmissionDetailPage() {
+    const params = useParams()
+    const submissionId = params.id as string
+
+    const { isAdmin, loading: authLoading } = useAdminAuth()
+    const { submission, creator, loading: dataLoading, refresh } = useSubmission(submissionId)
+    const { updateStatus, updating } = useSubmissionStatus(submissionId)
+
+    // Modal state
+    const [showModal, setShowModal] = useState(false)
+    const [modalMessage, setModalMessage] = useState('')
+    const [modalType, setModalType] = useState<'success' | 'error'>('success')
+
+    // Mark as Paid modal state
+    const [showMarkPaidModal, setShowMarkPaidModal] = useState(false)
+    const [markingPaid, setMarkingPaid] = useState(false)
+
+    // Lightbox state
+    const [lightboxOpen, setLightboxOpen] = useState(false)
+    const [lightboxIndex, setLightboxIndex] = useState(0)
+
+    // Quality checklist state
+    const [qualityChecklist, setQualityChecklist] = useState({
+        hasPhotos: false,
+        hasAudioVideo: false,
+        hasTranscript: false,
+        businessInfoComplete: false,
+        contactInfoComplete: false,
+    })
+
+    // Edit mode states
+    const [isEditing, setIsEditing] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [editedData, setEditedData] = useState({
+        business_name: '',
+        business_type: '',
+        owner_name: '',
+        owner_phone: '',
+        owner_email: '',
+        address: '',
+        city: '',
+        transcript: '',
+        photos: [] as string[],
+    })
+
+    // Website generation states
+    const [generatingWebsite, setGeneratingWebsite] = useState(false)
+    const [websiteGenerated, setWebsiteGenerated] = useState(false)
+    const [websitePreviewUrl, setWebsitePreviewUrl] = useState<string | null>(null)
+    const [websiteHtmlContent, setWebsiteHtmlContent] = useState<string | null>(null)
+
+    // Handler to update HTML content from WebsitePreview
+    const handleUpdateHtml = (html: string) => {
+        setWebsiteHtmlContent(html)
+    }
+
+    const handleUpdateDesign = async (customizations: EditorCustomizations) => {
+        if (JSON.stringify(customizations) === JSON.stringify(websiteCustomizations)) {
+            return
+        }
+        setWebsiteCustomizations(customizations)
+        await handleGenerateWebsite(customizations)
+    }
+
+    const [websiteContent, setWebsiteContent] = useState<any>(null)
+    const [websiteCustomizations, setWebsiteCustomizations] = useState<any>(null)
+    const [websiteError, setWebsiteError] = useState<string | null>(null)
+    const [websitePublishedUrl, setWebsitePublishedUrl] = useState<string | null>(null)
+    const [activeTab, setActiveTab] = useState<'preview' | 'design' | 'content'>('preview')
+
+    const handleEdit = () => {
+        if (submission) {
+            setEditedData({
+                business_name: submission.business_name,
+                business_type: submission.business_type,
+                owner_name: submission.owner_name,
+                owner_phone: submission.owner_phone,
+                owner_email: submission.owner_email || '',
+                address: submission.address,
+                city: submission.city,
+                transcript: submission.transcript || '',
+                photos: submission.photos || [],
+            })
+            setIsEditing(true)
+        }
+    }
+
+    const handleCancel = () => {
+        setIsEditing(false)
+        setEditedData({
+            business_name: '',
+            business_type: '',
+            owner_name: '',
+            owner_phone: '',
+            owner_email: '',
+            address: '',
+            city: '',
+            transcript: '',
+            photos: [],
+        })
+    }
+
+    const handleSave = async () => {
+        if (!submission) return
+
+        setSaving(true)
+        try {
+            const supabase = createClient()
+            const { error } = await supabase
+                .from('submissions')
+                .update({
+                    business_name: editedData.business_name,
+                    business_type: editedData.business_type,
+                    owner_name: editedData.owner_name,
+                    owner_phone: editedData.owner_phone,
+                    owner_email: editedData.owner_email || null,
+                    address: editedData.address,
+                    city: editedData.city,
+                    transcript: editedData.transcript || null,
+                    photos: editedData.photos,
+                })
+                .eq('id', submission.id)
+
+            if (error) throw error
+
+            setModalType('success')
+            setModalMessage('Changes saved successfully!')
+            setShowModal(true)
+            setIsEditing(false)
+            refresh() // Reload data
+        } catch (err: any) {
+            console.error('Error saving changes:', err)
+            setModalType('error')
+            setModalMessage('Failed to save changes. Please try again.')
+            setShowModal(true)
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const removePhoto = (indexToRemove: number) => {
+        setEditedData({
+            ...editedData,
+            photos: editedData.photos.filter((_, index) => index !== indexToRemove)
+        })
+    }
+
+    const handleStatusUpdate = async (newStatus: SubmissionStatus) => {
+        const success = await updateStatus(newStatus)
+
+        if (success) {
+            setModalType('success')
+            setModalMessage(`Submission ${newStatus} successfully!`)
+            setShowModal(true)
+
+            // If approved, send email to business owner
+            if (newStatus === 'approved') {
+                try {
+                    await fetch('/api/send-approval-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ submissionId })
+                    })
+                } catch (error) {
+                    console.error('Failed to send approval email:', error)
+                }
+            }
+
+            // Refresh data to show updated status
+            refresh()
+        } else {
+            setModalType('error')
+            setModalMessage('Failed to update status. Please try again.')
+            setShowModal(true)
+        }
+    }
+
+    const handleMarkAsPaid = async () => {
+        setMarkingPaid(true)
+        try {
+            const response = await fetch(`/api/submissions/${submissionId}/mark-paid`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to mark as paid')
+            }
+
+            const data = await response.json()
+            setShowMarkPaidModal(false)
+            setModalType('success')
+            setModalMessage(`Payment confirmed! Creator balance updated to ₱${data.newBalance.toLocaleString()}`)
+            setShowModal(true)
+            refresh()
+        } catch (error: any) {
+            setModalType('error')
+            setModalMessage('Failed to mark as paid. Please try again.')
+            setShowModal(true)
+        } finally {
+            setMarkingPaid(false)
+        }
+    }
+
+    // Handle website generation
+    const handleGenerateWebsite = async (customizationsOverride?: any) => {
+        // If already generating, skip (unless this is a distinct request, but for now prevent double-click)
+        if (generatingWebsite) return
+
+        setGeneratingWebsite(true)
+        setWebsiteError(null)
+
+        try {
+            const response = await fetch('/api/generate-website', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    submissionId,
+                    customizations: customizationsOverride || websiteCustomizations
+                }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to generate website')
+            }
+
+            const data = await response.json()
+            setWebsitePreviewUrl(data.previewUrl)
+            setWebsiteHtmlContent(data.htmlContent)
+            setWebsiteContent(data.website?.extracted_content)
+            setWebsiteCustomizations(data.website?.customizations)
+            setWebsiteGenerated(true)
+            setWebsiteCustomizations(data.website?.customizations)
+            setWebsiteGenerated(true)
+            // Do not refresh() here as it causes the page to remount (loading state) which resets the editor state
+        } catch (error: any) {
+            console.error('Website generation error:', error)
+            setWebsiteError(error.message || 'Failed to generate website')
+        } finally {
+            setGeneratingWebsite(false)
+        }
+    }
+
+    // Load existing generated website if available
+    useEffect(() => {
+        async function loadExistingWebsite() {
+            if (!submission || !submissionId) return
+
+            try {
+                const supabase = createClient()
+                const { data: website, error } = await supabase
+                    .from('generated_websites')
+                    .select('*')
+                    .eq('submission_id', submissionId)
+                    .single()
+
+                if (!error && website) {
+                    setWebsitePreviewUrl(website.storage_url)
+                    setWebsiteHtmlContent(website.html_content)
+                    setWebsiteContent(website.extracted_content) // fixed property name
+                    setWebsiteCustomizations(website.customizations)
+                    setWebsitePublishedUrl(website.published_url || null)
+                    setWebsiteGenerated(true)
+                }
+            } catch (error) {
+                console.error('Error loading existing website:', error)
+            }
+        }
+
+        loadExistingWebsite()
+    }, [submission, submissionId])
+
+    // Auto-populate quality checklist
+    useEffect(() => {
+        if (submission) {
+            setQualityChecklist({
+                hasPhotos: (submission.photos?.length || 0) > 0,
+                hasAudioVideo: !!(submission.audio_url || submission.video_url),
+                hasTranscript: !!submission.transcript,
+                businessInfoComplete: !!(
+                    submission.business_name &&
+                    submission.business_type &&
+                    submission.owner_name &&
+                    submission.owner_phone &&
+                    submission.address &&
+                    submission.city
+                ),
+                contactInfoComplete: !!(
+                    submission.owner_phone &&
+                    (submission.owner_email || submission.owner_phone)
+                ),
+            })
+        }
+    }, [submission])
+
+    if (authLoading || dataLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+            </div>
+        )
+    }
+
+    if (!isAdmin || !submission) return null
+
+    return (
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between py-4">
+                        <div className="flex items-center gap-4">
+                            <Link href="/admin">
+                                <Button variant="outline" size="sm">
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    Back
+                                </Button>
+                            </Link>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">{submission.business_name}</h1>
+                                <p className="text-sm text-gray-500">Submission Details</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            {/* Generate Website Button */}
+                            {(submission.status === 'approved' || submission.status === 'website_generated' || submission.status === 'paid') && (
+                                <Button
+                                    onClick={() => handleGenerateWebsite()}
+                                    disabled={generatingWebsite}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                                >
+                                    {generatingWebsite ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                                            </svg>
+                                            {websiteGenerated ? 'Regenerate Website' : 'Generate Website'}
+                                        </>
+                                    )}
+                                </Button>
+                            )}
+
+                            {/* Trigger Payout Button - Specific for Payout Requests */}
+                            {submission.payout_requested_at && (
+                                <Button
+                                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                                >
+                                    💸 Trigger Payout
+                                </Button>
+                            )}
+
+                            {submission.status !== 'approved' && submission.status !== 'paid' && (
+                                <Button
+                                    onClick={() => handleStatusUpdate('approved')}
+                                    disabled={updating}
+                                    className="bg-green-500 hover:bg-green-600 text-white"
+                                >
+                                    {updating ? 'Updating...' : 'Approve'}
+                                </Button>
+                            )}
+                            {submission.status === 'approved' && !submission.paid_at && (
+                                <Button
+                                    onClick={() => setShowMarkPaidModal(true)}
+                                    disabled={markingPaid}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                                >
+                                    {markingPaid ? 'Processing...' : '💰 Mark as Paid'}
+                                </Button>
+                            )}
+                            {submission.status !== 'rejected' && (
+                                <Button
+                                    onClick={() => handleStatusUpdate('rejected')}
+                                    disabled={updating}
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                >
+                                    {updating ? 'Updating...' : 'Reject'}
+                                </Button>
+                            )}
+                            {submission.status !== 'in_review' && (
+                                <Button
+                                    onClick={() => handleStatusUpdate('in_review')}
+                                    disabled={updating}
+                                    variant="outline"
+                                >
+                                    {updating ? 'Updating...' : 'Mark as In Review'}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Website Preview Section */}
+            {(websiteGenerated || generatingWebsite) && (
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-gray-900">Website Preview</h2>
+                        {websiteGenerated && (
+                            <div className="flex space-x-2">
+                                <a
+                                    href={`/website/${submissionId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 text-sm font-medium"
+                                >
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Open in New Tab
+                                </a>
+                            </div>
+                        )}
+                    </div>
+
+                    {websiteError && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                            {websiteError}
+                        </div>
+                    )}
+
+                    {generatingWebsite ? (
+                        <div className="bg-gray-100 rounded-lg p-12 text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                            <h3 className="text-lg font-medium text-gray-900">Generating Website...</h3>
+                            <p className="text-gray-500">This usually takes about 30-60 seconds.</p>
+                        </div>
+                    ) : websiteGenerated ? (
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                            {/* Tabs */}
+                            <div className="border-b border-gray-200">
+                                <nav className="flex -mb-px" aria-label="Tabs">
+                                    <button
+                                        onClick={() => setActiveTab('preview')}
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'preview'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
+                                    >
+                                        Live Preview
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('design')}
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'design'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
+                                    >
+                                        Styles
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('content')}
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'content'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
+                                    >
+                                        Content
+                                    </button>
+                                </nav>
+                            </div>
+
+                            {activeTab === 'preview' && (
+                                <WebsitePreview
+                                    htmlContent={websiteHtmlContent || ''}
+                                    isRegenerating={generatingWebsite}
+                                    isPublishing={false}
+                                    publishedUrl={websitePublishedUrl}
+                                    onPublish={() => {
+                                        console.log('Publish clicked')
+                                        window.open(`/website/${submissionId}`, '_blank')
+                                    }}
+                                />
+                            )}
+
+                            {activeTab === 'design' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200">
+                                    <div className="lg:col-span-1 h-[calc(100vh-300px)] lg:sticky lg:top-6">
+                                        <ContentEditor
+                                            initialCustomizations={websiteCustomizations}
+                                            onUpdate={handleUpdateDesign}
+                                            disabled={generatingWebsite}
+                                        />
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <WebsitePreview
+                                            htmlContent={websiteHtmlContent || ''}
+                                            isRegenerating={generatingWebsite}
+                                            isPublishing={false}
+                                            publishedUrl={websitePublishedUrl}
+                                            onPublish={() => window.open(`/website/${submissionId}`, '_blank')}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'content' && (
+                                <div className="bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200 min-h-[500px]">
+                                    <VisualEditor
+                                        initialContent={{
+                                            ...(websiteContent || {
+                                                business_name: submission?.business_name || '',
+                                                tagline: '',
+                                                about: '',
+                                                services: [],
+                                                contact: {}
+                                            }),
+                                            images: websiteContent?.images || submission.photos || []
+                                        }}
+                                        htmlContent={websiteHtmlContent || ''}
+                                        submissionId={submissionId}
+                                        onSave={async (content: any) => {
+                                            const response = await fetch('/api/save-content', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                    submissionId,
+                                                    content,
+                                                    customizations: websiteCustomizations
+                                                })
+                                            })
+
+                                            if (!response.ok) throw new Error('Failed to save')
+
+                                            const data = await response.json()
+
+                                            // Update the HTML content and website content
+                                            if (data.htmlContent) {
+                                                setWebsiteHtmlContent(data.htmlContent)
+                                            }
+                                            setWebsiteContent(content)
+
+                                            // Refresh submission data
+                                            await refresh()
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    ) : null}
+                </div>
+            )}
+
+            {/* Main Content */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - Business Info */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Business Information */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold text-gray-900">Business Information</h2>
+                                {!isEditing && (
+                                    <button
+                                        onClick={handleEdit}
+                                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Business Name</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.business_name}
+                                            onChange={(e) => setEditedData({ ...editedData, business_name: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 font-medium mt-1">{submission.business_name}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Business Type</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.business_type}
+                                            onChange={(e) => setEditedData({ ...editedData, business_type: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.business_type}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Owner Name</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.owner_name}
+                                            onChange={(e) => setEditedData({ ...editedData, owner_name: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.owner_name}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Owner Phone</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.owner_phone}
+                                            onChange={(e) => setEditedData({ ...editedData, owner_phone: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.owner_phone}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Owner Email</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.owner_email}
+                                            onChange={(e) => setEditedData({ ...editedData, owner_email: e.target.value })}
+                                            placeholder="Optional"
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.owner_email || 'N/A'}</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">City</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.city}
+                                            onChange={(e) => setEditedData({ ...editedData, city: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.city}</p>
+                                    )}
+                                </div>
+                                <div className="col-span-2">
+                                    <Label className="text-xs text-gray-500 uppercase font-medium">Address</Label>
+                                    {isEditing ? (
+                                        <Input
+                                            value={editedData.address}
+                                            onChange={(e) => setEditedData({ ...editedData, address: e.target.value })}
+                                            className="mt-1"
+                                        />
+                                    ) : (
+                                        <p className="text-gray-900 mt-1">{submission.address}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Photos */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold text-gray-900">
+                                    Photos ({isEditing ? editedData.photos.length : (submission.photos?.length || 0)})
+                                </h2>
+                                <div className="flex items-center gap-4">
+                                    {isEditing && editedData.photos.length > 0 && (
+                                        <span className="text-xs text-gray-500">Click X to remove</span>
+                                    )}
+                                    {!isEditing && (
+                                        <button
+                                            onClick={handleEdit}
+                                            className="text-gray-400 hover:text-blue-500 transition-colors"
+                                        >
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4">
+                                {(isEditing ? editedData.photos : (submission.photos || [])).map((url, index) => (
+                                    <div
+                                        key={index}
+                                        className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer"
+                                        onClick={() => {
+                                            if (!isEditing) {
+                                                setLightboxIndex(index)
+                                                setLightboxOpen(true)
+                                            }
+                                        }}
+                                    >
+                                        <Image
+                                            src={url}
+                                            alt={`Photo ${index + 1}`}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                        {isEditing && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    removePhoto(index)
+                                                }}
+                                                className="absolute top-2 right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                type="button"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                        {!isEditing && (
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <svg className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m0 0v6m0-6h6m-6 0H4" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {isEditing && editedData.photos.length === 0 && (
+                                <p className="text-gray-500 text-center py-8">No photos remaining</p>
+                            )}
+                        </div>
+
+                        {/* Interview */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-lg font-bold text-gray-900">Interview</h2>
+                                {!isEditing && (
+                                    <button
+                                        onClick={handleEdit}
+                                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Transcript Section */}
+                            {(submission.transcript || isEditing) && (
+                                <div className="mb-6">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                                            AI Transcript
+                                        </h3>
+                                        {!isEditing && (
+                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                                                Generated
+                                            </span>
+                                        )}
+                                    </div>
+                                    {isEditing ? (
+                                        <textarea
+                                            value={editedData.transcript}
+                                            onChange={(e) => setEditedData({ ...editedData, transcript: e.target.value })}
+                                            className="w-full h-96 p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="Transcript will appear here after AI processing..."
+                                        />
+                                    ) : (
+                                        <div className="bg-gray-50 rounded-xl p-4 max-h-96 overflow-y-auto">
+                                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                                {submission.transcript}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Save/Cancel Buttons - Only show when editing */}
+                            {isEditing && (
+                                <div className="flex gap-3 justify-end mt-6 pt-6 border-t border-gray-200 mb-6">
+                                    <Button
+                                        onClick={handleCancel}
+                                        disabled={saving}
+                                        variant="outline"
+                                        className="px-6"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="bg-green-500 hover:bg-green-600 text-white px-6"
+                                    >
+                                        {saving ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Media Player */}
+                            <div>
+                                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                                    {submission.transcript ? 'Original Recording' : 'Recording'}
+                                </h3>
+                                {submission.video_url ? (
+                                    <div className="relative bg-black rounded-xl overflow-hidden aspect-video">
+                                        <video
+                                            src={submission.video_url}
+                                            controls
+                                            className="w-full h-full"
+                                        />
+                                    </div>
+                                ) : submission.audio_url ? (
+                                    <div className="p-6 bg-gray-50 rounded-xl">
+                                        <audio
+                                            src={submission.audio_url}
+                                            controls
+                                            className="w-full"
+                                        />
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-500">No interview uploaded</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column - Metadata */}
+                    <div className="space-y-6">
+                        {/* Status */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Status</h2>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase font-medium">Current Status</label>
+                                    <p className="text-lg font-semibold text-gray-900 capitalize">{submission.status.replace('_', ' ')}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase font-medium">Creator Payout</label>
+                                    <p className="text-2xl font-bold text-green-600">₱{submission.creator_payout || 0}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-500 uppercase font-medium">Submitted On</label>
+                                    <p className="text-gray-900">{new Date(submission.created_at).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Quality Checklist */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Quality Checklist</h2>
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasPhotos ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasPhotos && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasPhotos ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Photos ({submission.photos?.length || 0})
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasAudioVideo ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasAudioVideo && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasAudioVideo ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Audio/Video
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.hasTranscript ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.hasTranscript && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.hasTranscript ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Has Transcript
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.businessInfoComplete ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.businessInfoComplete && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.businessInfoComplete ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Business Info Complete
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${qualityChecklist.contactInfoComplete ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                        {qualityChecklist.contactInfoComplete && (
+                                            <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </div>
+                                    <span className={`text-sm ${qualityChecklist.contactInfoComplete ? 'text-gray-900' : 'text-gray-500'}`}>
+                                        Contact Info Complete
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Creator Info */}
+                        {creator && (
+                            <div className="bg-white rounded-xl p-6 border border-gray-200">
+                                <h2 className="text-lg font-bold text-gray-900 mb-4">Creator Info</h2>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-gray-500 uppercase font-medium">Name</label>
+                                        <p className="text-gray-900">{creator.first_name} {creator.last_name}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500 uppercase font-medium">Email</label>
+                                        <p className="text-gray-900">{creator.email || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500 uppercase font-medium">Phone</label>
+                                        <p className="text-gray-900">{creator.phone || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Status Update Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+                        <div className="text-center">
+                            {/* Icon */}
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${modalType === 'success'
+                                ? 'bg-green-100'
+                                : 'bg-red-100'
+                                }`}>
+                                {modalType === 'success' ? (
+                                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                )}
+                            </div>
+
+                            {/* Message */}
+                            <h3 className={`text-xl font-bold mb-2 ${modalType === 'success' ? 'text-gray-900' : 'text-red-900'
+                                }`}>
+                                {modalType === 'success' ? 'Success!' : 'Error'}
+                            </h3>
+                            <p className="text-gray-600 mb-6">{modalMessage}</p>
+
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className={`w-full py-3 px-4 rounded-xl font-semibold transition-all ${modalType === 'success'
+                                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                                    : 'bg-red-500 hover:bg-red-600 text-white'
+                                    }`}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mark as Paid Confirmation Modal */}
+            {showMarkPaidModal && submission && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                Confirm Payment Received
+                            </h3>
+                            <p className="text-gray-600 mb-4">
+                                Are you sure you want to mark this submission as paid?
+                            </p>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <p className="text-sm font-medium text-blue-900 mb-2">This will:</p>
+                                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                                    <li>Update submission status to "Paid"</li>
+                                    <li>Add ₱{submission.creator_payout.toLocaleString()} to creator's balance</li>
+                                    <li>Update creator's total earnings</li>
+                                </ul>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-600">Business:</span>
+                                    <span className="font-medium text-gray-900">{submission.business_name}</span>
+                                </div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-600">Amount:</span>
+                                    <span className="font-medium text-gray-900">₱{submission.amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Creator Payout:</span>
+                                    <span className="font-bold text-green-600">₱{submission.creator_payout.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowMarkPaidModal(false)}
+                                    disabled={markingPaid}
+                                    className="flex-1 py-3 px-4 rounded-xl font-semibold border border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleMarkAsPaid}
+                                    disabled={markingPaid}
+                                    className="flex-1 py-3 px-4 rounded-xl font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-all disabled:opacity-50"
+                                >
+                                    {markingPaid ? 'Processing...' : 'Confirm Payment'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Photo Lightbox */}
+            {lightboxOpen && submission.photos && submission.photos.length > 0 && (
+                <PhotoLightbox
+                    photos={submission.photos}
+                    initialIndex={lightboxIndex}
+                    onClose={() => setLightboxOpen(false)}
+                />
+            )}
+        </div>
+    )
+}

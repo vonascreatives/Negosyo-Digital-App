@@ -20,28 +20,19 @@ export default function ForgotPasswordPage() {
         setLoading(true)
         setError(null)
 
-        console.log('=== PASSWORD RESET REQUEST ===')
-        console.log('Email:', email)
-        console.log('Redirect URL:', `${window.location.origin}/reset-password`)
-        console.log('Timestamp:', new Date().toISOString())
-
         try {
             const supabase = createClient()
-            console.log('Supabase client created')
 
             const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/reset-password`,
             })
 
-            console.log('Reset password response:', { data, error })
 
             if (error) {
                 console.error('Reset password error:', error)
                 throw error
             }
 
-            console.log('✅ Password reset email sent successfully!')
-            console.log('Response data:', data)
             setSuccess(true)
         } catch (err: any) {
             console.error('❌ Password reset failed:', err)
@@ -54,7 +45,6 @@ export default function ForgotPasswordPage() {
             setError(err.message || 'Failed to send reset email')
         } finally {
             setLoading(false)
-            console.log('=== PASSWORD RESET REQUEST END ===')
         }
     }
 

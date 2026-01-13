@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,14 +18,42 @@ export default function LoginPage() {
     const [password, setPassword] = useState("")
     const [showPassword, setShowPassword] = useState(false)
 
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
+
+
         try {
-            await login({ email, password }, () => {
-                router.push('/dashboard')
-            })
-        } catch (err) {
+            // Login first
+            await login({ email, password })
+
+            // Then check role and redirect
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (user) {
+                const { data: creator, error: roleError } = await supabase
+                    .from('creators')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single()
+
+                if (roleError) {
+                    console.error('Error fetching role:', roleError)
+                    // Error fetching role
+                    return
+                }
+
+                // Redirect based on role
+                if (creator?.role === 'admin') {
+                    router.push('/admin')
+                } else {
+                    router.push('/dashboard')
+                }
+            }
+        } catch (err: any) {
             console.error("Login failed:", err)
+            // Error logged to console
         }
     }
 

@@ -1,0 +1,4 @@
+ALTER TABLE generated_websites 
+ADD COLUMN IF NOT EXISTS published_url TEXT,
+ADD COLUMN IF NOT EXISTS netlify_site_id TEXT,
+ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ;
