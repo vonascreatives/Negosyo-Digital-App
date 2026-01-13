@@ -86,12 +86,39 @@ export async function POST(request: NextRequest) {
         // Check if site already exists (for re-publishing)
         let siteId = website.netlify_site_id
         let siteName = subdomain
+        let existingPublishedUrl = website.published_url
+
+        // Validate existing URL - must not have spaces and must be proper format
+        const isValidUrl = existingPublishedUrl &&
+            !existingPublishedUrl.includes(' ') &&
+            /^https:\/\/[a-z0-9-]+\.netlify\.app$/.test(existingPublishedUrl)
 
         if (!siteId) {
             // Create new Netlify site
             const siteResponse = await createNetlifySite(netlifyToken, subdomain, teamSlug)
             siteId = siteResponse.id
             siteName = siteResponse.name  // Get the actual name (might have suffix if taken)
+        } else if (isValidUrl && existingPublishedUrl) {
+            // Site already exists with valid URL - extract site name from existing URL
+            const urlMatch = existingPublishedUrl.match(/https?:\/\/([^.]+)\.netlify\.app/)
+            if (urlMatch) {
+                siteName = urlMatch[1]
+            }
+        } else if (siteId) {
+            // Site exists but URL is invalid - fetch actual site info from Netlify
+            try {
+                const siteInfoResponse = await fetch(`https://api.netlify.com/api/v1/sites/${siteId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${netlifyToken}`,
+                    }
+                })
+                if (siteInfoResponse.ok) {
+                    const siteInfo = await siteInfoResponse.json()
+                    siteName = siteInfo.name || subdomain
+                }
+            } catch (e) {
+                console.error('Failed to fetch site info from Netlify:', e)
+            }
         }
 
         // Deploy the HTML content
@@ -102,8 +129,10 @@ export async function POST(request: NextRequest) {
             businessName
         )
 
-        // Free Netlify URL
-        const publishedUrl = `https://${siteName}.netlify.app`
+        // Construct proper URL (never use invalid existing URL)
+        const publishedUrl = isValidUrl && existingPublishedUrl
+            ? existingPublishedUrl
+            : `https://${siteName}.netlify.app`
 
         // Update database with published info
         const { error: updateError } = await supabase

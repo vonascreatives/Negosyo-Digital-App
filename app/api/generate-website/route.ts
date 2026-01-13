@@ -144,9 +144,22 @@ IMPORTANT:
         const templatePath = path.join(process.cwd(), 'app', template.path)
         const templateHtml = await fs.readFile(templatePath, 'utf-8')
 
-        // Inject content
+        // Inject content with default customizations if none provided
         const photos = (extractedContent as any).images || submission.photos || []
-        const generatedHtml = injectContent(templateHtml, extractedContent, customizations, photos)
+        const defaultCustomizations = {
+            heroStyle: '1',
+            aboutStyle: '1',
+            servicesStyle: '1',
+            footerStyle: '1',
+            colorScheme: 'auto',
+            colorSchemeId: 'auto',
+            fontPairing: 'modern',
+            fontPairingId: 'modern'
+        }
+        const finalCustomizations = customizations && Object.keys(customizations).length > 0
+            ? { ...defaultCustomizations, ...customizations }
+            : defaultCustomizations
+        const generatedHtml = injectContent(templateHtml, extractedContent, finalCustomizations, photos)
 
         // Upload to Supabase Storage
         const fileName = `${submissionId}/website-${Date.now()}.html`
@@ -174,7 +187,7 @@ IMPORTANT:
                 submission_id: submissionId,
                 template_name: selectedTemplate,
                 extracted_content: extractedContent,
-                customizations: customizations || {},
+                customizations: finalCustomizations,
                 html_content: generatedHtml,
                 storage_url: publicUrl,
                 status: 'draft',
