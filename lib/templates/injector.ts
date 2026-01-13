@@ -1,5 +1,9 @@
 import * as cheerio from 'cheerio'
 import { generateHeroHtml } from './hero-styles'
+import { generateAboutHtml } from './about-styles'
+import { generateServicesHtml } from './services-styles'
+import { generateFooterHtml } from './footer-styles'
+import { generateColorSchemeCss } from './color-schemes'
 
 export interface ExtractedContent {
     business_name: string
@@ -40,8 +44,13 @@ export interface ExtractedContent {
 
 export interface Customizations {
     heroStyle?: string
+    aboutStyle?: string
+    servicesStyle?: string
+    footerStyle?: string
     colorScheme?: string[]
     fontPairing?: string
+    colorSchemeId?: string
+    fontPairingId?: string
 }
 
 /**
@@ -70,6 +79,107 @@ export function injectContent(
         const $heroSection = $('main > div').first()
         if ($heroSection.length) {
             $heroSection.replaceWith(heroHtml)
+        }
+    }
+
+    // 0.a. Apply Services Style
+    if (customizations?.servicesStyle) {
+        const servicesHtml = generateServicesHtml(customizations.servicesStyle, {
+            photos: photos || [],
+            services: content.services || []
+        })
+
+        // Find section containing "Curated Disciplines"
+        // Find section containing "Curated Disciplines"
+        let servicesReplaced = false
+        $('h2').each((_, el) => {
+            if ($(el).text().trim().includes('Curated Disciplines')) {
+                // Find the parent container section. 
+                let $section = $(el).parents().filter((_, p) => $(p).hasClass('border-b')).first()
+
+                // Crucial Check: If we grabbed a column (col-span), we need to go higher to the ROW
+                if ($section.length && ($section.attr('class') || '').includes('col-span')) {
+                    const $higher = $section.parents().filter((_, p) => $(p).hasClass('border-b')).not($section).first()
+                    if ($higher.length) $section = $higher
+                }
+
+                // If the section also contains "Structured for Outcome" or "About", it's too broad.
+                const rawText = $section.text()
+                if (rawText.includes('Structured for Outcome') || rawText.includes('About')) {
+                    // Fallback: try the immediate parent div if it's not the body
+                    $section = $(el).parent()
+                    if ($section.prop('tagName') !== 'BODY') {
+                        $section.remove() // remove old
+                    }
+                } else if ($section.length) {
+                    $section.remove() // remove old
+                }
+            }
+        })
+
+        // Always append fresh
+        const $main = $('main').first()
+        if ($main.length) {
+            $main.append(servicesHtml)
+        } else {
+            $('body').append(servicesHtml)
+        }
+    }
+
+    // 0.b. Apply About/Features Style
+    if (customizations?.aboutStyle) {
+        const aboutHtml = generateAboutHtml(customizations.aboutStyle, {
+            businessName: content.business_name,
+            about: content.about,
+            photos: photos || [],
+            usps: content.unique_selling_points
+        })
+
+        // Find and remove old About sections
+        $('h2').each((_, el) => {
+            const text = $(el).text().trim()
+            if (text.includes('Structured for Outcome') || text.includes('Signature Cohorts') || text.includes('Why Choose')) {
+                let $section = $(el).parents().filter((_, p) => $(p).hasClass('border-b')).first()
+
+                if ($section.length && ($section.attr('class') || '').includes('col-span')) {
+                    const $higher = $section.parents().filter((_, p) => $(p).hasClass('border-b')).not($section).first()
+                    if ($higher.length) $section = $higher
+                }
+
+                const rawText = $section.text()
+                if (rawText.includes('Curated Disciplines')) {
+                    $section = $(el).parent()
+                    if ($section.prop('tagName') !== 'BODY') {
+                        $section.remove()
+                    }
+                } else if ($section.length) {
+                    $section.remove()
+                }
+            }
+        })
+
+        // Always append fresh
+        const $main = $('main').first()
+        if ($main.length) {
+            $main.append(aboutHtml)
+        } else {
+            $('body').append(aboutHtml)
+        }
+    }
+
+    // 0.c. Apply Footer Style
+    if (customizations?.footerStyle) {
+        const footerHtml = generateFooterHtml(customizations.footerStyle, {
+            businessName: content.business_name,
+            email: content.contact?.email || 'contact@example.com',
+            phone: content.contact?.phone || '+63 900 000 0000',
+            address: content.contact?.address
+        })
+
+        if ($('footer').length) {
+            $('footer').replaceWith(footerHtml)
+        } else {
+            $('body').append(footerHtml)
         }
     }
 
@@ -329,19 +439,14 @@ export function injectContent(
         $('footer p').first().text(content.about)
     }
 
-    // Force Footer White Text (Inline)
+    // Force Footer White Text (Inline) - REMOVED (Legacy)
+    // We now rely on the component styles or the color scheme injector to handle contrast
+    /*
     $('footer').attr('style', ($('footer').attr('style') || '') + '; color: #ffffff !important;');
     $('footer *').each((_, el) => {
-        const $el = $(el);
-        // Skip inputs/buttons if they need specific styling, but generally force white for text
-        if (!$el.is('button') && !$el.is('input')) {
-            $el.attr('style', ($el.attr('style') || '') + '; color: #ffffff !important; border-color: rgba(255,255,255,0.2) !important;');
-        }
-        // Force SVG stroke/fill to white in footer
-        if ($el.is('svg') || $el.is('path')) {
-            $el.attr('stroke', '#ffffff');
-        }
+        // ...
     });
+    */
 
     $('footer h2, footer h3, footer h4').each((_, el) => {
         const $el = $(el)
@@ -414,7 +519,7 @@ export function injectContent(
 
         // Hide or clear the old contact column
         if ($contactSection.length) {
-            $contactSection.hide();
+            $contactSection.remove();
         }
 
         // Now inject into the footer bottom bar (the orange band at the very bottom)
@@ -530,246 +635,10 @@ export function injectContent(
         })
     }
 
-    // Apply color scheme if provided - CREATIVE & COMPREHENSIVE
-    if (customizations?.colorScheme && customizations.colorScheme.length >= 3) {
-        const [primary, secondary, accent] = customizations.colorScheme
-        const primaryContrast = getContrastColor(primary)
-        const secondaryContrast = getContrastColor(secondary)
-        const accentContrast = getContrastColor(accent)
-
-        $('head').append(`
-      <style>
-        /* ===== GLOBAL COLOR VARIABLES ===== */
-        :root {
-          --color-primary: ${primary};
-          --color-secondary: ${secondary};
-          --color-accent: ${accent};
-          --color-primary-contrast: ${primaryContrast};
-          --color-primary-light: ${primary}15;
-          --color-primary-dark: ${primary}dd;
-        }
-        
-        /* ===== PRIMARY COLOR APPLICATIONS ===== */
-        /* Main buttons and CTAs */
-        .bg-\\[\\#6B8F71\\],
-        button.bg-\\[\\#6B8F71\\],
-        .hover\\:bg-\\[\\#6B8F71\\]:hover,
-        [class*="bg-purple"],
-        [class*="bg-green"] {
-          background-color: ${primary} !important;
-          color: white !important; /* STRICTLY WHITE */
-        }
-        
-        /* Ensure svgs inside buttons inherit contrast color */
-        button.bg-\\[\\#6B8F71\\] svg,
-        .bg-\\[\\#6B8F71\\] svg {
-             color: white !important;
-             stroke: white !important;
-        }
-        
-        /* Primary text colors */
-        .text-\\[\\#6B8F71\\],
-        .hover\\:text-\\[\\#6B8F71\\]:hover {
-          color: ${primary} !important;
-        }
-        
-        /* Primary borders */
-        .border-\\[\\#6B8F71\\],
-        .border-purple-600,
-        .border-green-600 {
-          border-color: ${primary} !important;
-        }
-        
-        /* Selection color */
-        ::selection {
-          background-color: ${primary} !important;
-          color: ${primaryContrast} !important;
-        }
-        
-        /* ===== SECONDARY COLOR APPLICATIONS ===== */
-        /* Subtle backgrounds and hover states */
-        .hover\\:bg-\\[\\#4F6F57\\]:hover,
-        .bg-\\[\\#F6F7F5\\],
-        .group:hover .group-hover\\:bg-\\[\\#6B8F71\\]\\/10 {
-          background-color: ${secondary}20 !important;
-        }
-        
-        /* Secondary borders */
-        .border-\\[\\#E3E6E3\\] {
-          border-color: ${secondary}40 !important;
-        }
-        
-        /* ===== ACCENT COLOR APPLICATIONS ===== */
-        /* Accent elements - badges, highlights */
-        .absolute.top-2.right-2,
-        .absolute.top-4.right-4,
-        [class*="badge"] {
-          background-color: ${accent} !important;
-          color: ${accentContrast} !important;
-          border-color: ${accent} !important;
-        }
-        
-        /* Links and interactive elements */
-        a:hover,
-        button:hover {
-          color: ${accent} !important;
-        }
-        
-        /* ===== CREATIVE ENHANCEMENTS ===== */
-        /* Gradient overlays */
-        .hero-slide::after {
-          background: linear-gradient(135deg, ${primary}40, ${accent}40) !important;
-        }
-        
-        /* Button hover effects with gradient */
-        button:hover,
-        .bg-\\[\\#6B8F71\\]:hover {
-          background: linear-gradient(135deg, ${primary}, ${accent}) !important;
-          transform: translateY(-2px);
-          box-shadow: 0 10px 25px ${primary}40 !important;
-          transition: all 0.3s ease !important;
-          color: ${primaryContrast} !important; /* Keep contrast on hover */
-        }
-        
-        /* Card hover effects */
-        .group.cursor-pointer:hover {
-          border-color: ${primary} !important;
-          box-shadow: 0 8px 30px ${primary}30 !important;
-          transition: all 0.3s ease !important;
-        }
-        
-        /* Icon colors */
-        svg path[stroke="currentColor"] {
-          stroke: currentColor !important;
-        }
-        .text-\\[\\#6B8F71\\] svg path {
-             stroke: ${primary} !important;
-        }
-        
-        /* Star ratings */
-        .text-\\[\\#6B8F71\\] svg {
-          color: ${accent} !important;
-        }
-        
-        /* Focus states */
-        input:focus,
-        textarea:focus,
-        select:focus {
-          border-color: ${primary} !important;
-          outline: 2px solid ${primary}40 !important;
-          outline-offset: 2px;
-        }
-        
-        /* Scrollbar styling */
-        ::-webkit-scrollbar-thumb {
-          background-color: ${primary} !important;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background-color: ${accent} !important;
-        }
-        
-        /* Link underlines */
-        a {
-          text-decoration-color: ${primary}60 !important;
-        }
-        
-        /* Section dividers with gradient */
-        .border-b.border-\\[\\#E3E6E3\\] {
-          border-image: linear-gradient(90deg, ${secondary}20, ${primary}40, ${secondary}20) 1 !important;
-        }
-        
-        /* Backdrop blur elements */
-        .backdrop-blur-sm,
-        .backdrop-blur-md {
-          background-color: ${secondary}15 !important;
-        }
-        
-        /* Navigation hover states */
-        nav a:hover {
-          color: ${primary} !important;
-          border-bottom: 2px solid ${primary} !important;
-        }
-        
-        /* Footer styling */
-        footer {
-          background: linear-gradient(180deg, ${secondary}10, ${secondary}05) !important;
-        }
-        
-        /* Footer styling - FORCE CONTRAST */
-        footer {
-            background-color: ${primary} !important;
-            background: ${primary} !important;
-            color: ${primaryContrast} !important;
-        }
-        
-        /* Force all children of footer to inherit contrast color */
-        footer p, 
-        footer span, 
-        footer a, 
-        footer h3, 
-        footer h4, 
-        footer h2,
-        footer div,
-        footer li {
-             color: ${primaryContrast} !important;
-             opacity: 1 !important; /* Remove opacity to ensure max contrast */
-        }
-        
-        /* Footer inputs and buttons */
-        footer input {
-            color: ${primaryContrast} !important;
-            border-bottom-color: ${primaryContrast} !important;
-        }
-        footer input::placeholder {
-            color: ${primaryContrast} !important;
-            opacity: 0.6 !important;
-        }
-        
-        footer button,
-        footer button:hover {
-            color: ${primaryContrast} !important;
-        }
-        /* Force overrides for the specific Explore button */
-        button[class*="bg-"],
-        .bg-\\[\\#6B8F71\\] {
-             color: #ffffff !important;
-        }
-        
-        /* Override specifically for the Explore button text */
-        button .font-manrope,
-        button span {
-            color: #ffffff !important;
-        }
-
-        /* Hover state for footer links */
-        footer a:hover {
-             text-decoration: underline !important;
-             opacity: 0.8 !important;
-        }
-        
-        /* Pricing/number highlights */
-        span.text-base.font-medium,
-        .text-\\[\\#1F2933\\].text-base {
-          color: ${accent} !important;
-        }
-        
-        /* Badge and tag styling */
-        .text-xs.uppercase.tracking-widest {
-          color: ${primary} !important;
-        }
-        
-        /* Image overlays on hover */
-        .group:hover img {
-          filter: brightness(0.9) saturate(1.2) !important;
-        }
-        
-        /* Animated underlines */
-        a::after {
-          background-color: ${primary} !important;
-        }
-      </style>
-    `)
+    // Apply color scheme if provided
+    if (customizations?.colorSchemeId) {
+        const colorCss = generateColorSchemeCss(customizations.colorSchemeId)
+        $('head').append(colorCss)
     }
 
     // Apply font pairing if provided
@@ -816,6 +685,85 @@ export function injectContent(
             $el.find('svg, path').attr('stroke', '#ffffff').attr('fill', 'none')
         }
     })
+
+    // Final Reorder Enforcement: Hero -> About -> Services -> Footer
+
+    // STRUCTURE-BASED HERO SELECTOR (Most Reliable)
+    // In atelier.html, Hero is the first child of <main>.
+    let $hero = $('main > div').first()
+
+    // Fallback: If no main, try the first section-like div in body wrapper
+    if (!$hero.length) {
+        $hero = $('body > div > div').first() // Wrapper > Main/Content
+    }
+
+    // Tag it so we know we found it
+    if ($hero.length) $hero.attr('id', 'hero-found-target')
+
+    const $about = $('#about-section')
+    const $services = $('#services-section')
+    let $footer = $('#footer-section')
+
+    // CLEANUP: Robust Text-Based Removal
+    $('h2').filter((_, el) => {
+        const t = $(el).text().trim()
+        return t.includes('Curated Disciplines') || t.includes('Selected Works') || t.includes('Service Output')
+    }).each((_, el) => {
+        const $p = $(el).closest('div[class*="border"]');
+        // Remove ONLY if it's NOT our injected section
+        if ($p.closest('#services-section').length === 0) {
+            $p.remove()
+            // Also remove immediate next sibling if it looks like a grid (atelier layout)
+            // In atelier.html, the grid is a separate sibling div sometimes?
+            // Actually, lines 393 show grid is sibling to header container.
+            // We'll trust that we removed the container header.
+            // But let's be safe and look for the grid manually.
+        }
+    })
+
+    // Cleanup "Signature Cohorts" / About legacy
+    $('h2').filter((_, el) => {
+        const t = $(el).text().trim()
+        return t.includes('Signature Cohorts') || t.includes('Structured for Outcome') || t.includes('What We Offer')
+    }).each((_, el) => {
+        const $p = $(el).closest('div[class*="border"]');
+        // Only if not ours
+        if ($p.closest('#about-section').length === 0 && $p.attr('id') !== 'hero-found-target') {
+            // Careful not to delete Hero (which has "What We Offer" button sometimes?) 
+            // Actually Line 357 "Explore What we Offer" is a button.
+            // We targeted 'h2'. Hero has 'h1'. Should be safe.
+            $p.remove()
+        }
+    })
+
+    // Remove any empty border divs left behind
+    $('div.border-b').filter((_, el) => $(el).text().trim() === '').remove()
+
+
+    // Strict Re-insertion
+    if ($about.length && $services.length) {
+
+        // 1. Position About
+        if ($hero.length) {
+            $about.insertAfter($hero)
+        } else {
+            // If selectors fail, append to MAIN, not body (to stay in wrapper)
+            $('main').prepend($about)
+        }
+
+        // 2. Position Services AFTER About
+        $services.insertAfter($about)
+
+        // 3. Position Footer AFTER Services
+        if ($footer.length) {
+            $footer.insertAfter($services)
+        }
+    }
+
+    // If Footer exists but wasn't moved (e.g. Services missing), force it to bottom
+    if ($footer.length && !$footer.prev().is('#services-section')) {
+        $('body').append($footer)
+    }
 
     return $.html()
 }

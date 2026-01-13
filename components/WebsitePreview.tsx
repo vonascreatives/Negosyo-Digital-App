@@ -1,298 +1,115 @@
 'use client'
 
 import { useState } from 'react'
-import { Monitor, Smartphone, Palette, Type, Layout, Globe, ExternalLink } from 'lucide-react'
-import { toast } from 'sonner'
+import { Monitor, Smartphone, Globe, ExternalLink, Moon } from 'lucide-react'
 
 interface WebsitePreviewProps {
-    previewUrl: string
     htmlContent: string
-    submissionId: string
-    initialCustomizations?: {
-        heroStyle: string
-        colorScheme: string | string[]
-        fontPairing: string
-        colorSchemeId?: string
-        fontPairingId?: string
-    }
-    initialPublishedUrl?: string | null
-    onPublish?: (url: string) => void
-    onSaveDraft?: () => void
-    onUpdateHtml?: (html: string) => void
-    onUpdateCustomizations?: (customizations: any) => void
+    isRegenerating: boolean
+    isPublishing: boolean
+    publishedUrl: string | null
+    onPublish: () => void
 }
 
-export default function WebsitePreview({ previewUrl, htmlContent, submissionId, initialCustomizations, initialPublishedUrl, onPublish, onSaveDraft, onUpdateHtml, onUpdateCustomizations }: WebsitePreviewProps) {
+export default function WebsitePreview({
+    htmlContent,
+    isRegenerating,
+    isPublishing,
+    publishedUrl,
+    onPublish
+}: WebsitePreviewProps) {
     const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop')
-    const [selectedHeroStyle, setSelectedHeroStyle] = useState(initialCustomizations?.heroStyle || '1')
-    // Handle potential array value or missing ID by defaulting to 'auto' if safe check fails
-    const [selectedColorScheme, setSelectedColorScheme] = useState(
-        initialCustomizations?.colorSchemeId ||
-        (typeof initialCustomizations?.colorScheme === 'string' ? initialCustomizations.colorScheme : 'auto')
-    )
-    const [selectedFontPairing, setSelectedFontPairing] = useState(initialCustomizations?.fontPairingId || initialCustomizations?.fontPairing || 'modern')
-    const [isRegenerating, setIsRegenerating] = useState(false)
-    const [currentHtmlContent, setCurrentHtmlContent] = useState(htmlContent)
-
-    // Publishing state
-    const [isPublishing, setIsPublishing] = useState(false)
-    const [publishedUrl, setPublishedUrl] = useState<string | null>(initialPublishedUrl || null)
-
-    const handleRegenerate = async () => {
-        setIsRegenerating(true)
-        const loadingToast = toast.loading('Applying changes...')
-
-        try {
-            const response = await fetch('/api/generate-website', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    submissionId,
-                    customizations: {
-                        heroStyle: selectedHeroStyle,
-                        colorScheme: selectedColorScheme === 'auto' ? undefined : getColorSchemeValues(selectedColorScheme),
-                        fontPairing: selectedFontPairing,
-                        // Persist IDs for UI state restoration
-                        colorSchemeId: selectedColorScheme,
-                        fontPairingId: selectedFontPairing
-                    }
-                })
-            })
-
-            if (!response.ok) throw new Error('Failed to regenerate')
-
-            const data = await response.json()
-
-            // Update the HTML content state
-            if (data.htmlContent) {
-                setCurrentHtmlContent(data.htmlContent)
-                // Notify parent of HTML update
-                if (onUpdateHtml) {
-                    onUpdateHtml(data.htmlContent)
-                }
-            }
-
-            // Sync customizations state with parent
-            if (data.website?.customizations && onUpdateCustomizations) {
-                onUpdateCustomizations(data.website.customizations)
-            }
-
-            // Reload iframe with new content
-            const iframe = document.getElementById('website-preview') as HTMLIFrameElement
-            if (iframe && iframe.contentWindow) {
-                iframe.contentWindow.location.reload()
-            }
-
-            toast.success('Changes applied successfully!', { id: loadingToast })
-        } catch (error) {
-            console.error('Regeneration error:', error)
-            toast.error('Failed to apply changes. Please try again.', { id: loadingToast })
-        } finally {
-            setIsRegenerating(false)
-        }
-    }
-
-    // Helper function to get color scheme values
-    const getColorSchemeValues = (scheme: string): string[] => {
-        const schemes: Record<string, string[]> = {
-            'blue': ['#3B82F6', '#60A5FA', '#2563EB'],
-            'green': ['#10B981', '#34D399', '#059669'],
-            'purple': ['#8B5CF6', '#A78BFA', '#7C3AED'],
-            'orange': ['#F97316', '#FB923C', '#EA580C'],
-            'dark': ['#1F2937', '#374151', '#4B5563']
-        }
-        return schemes[scheme] || schemes['blue']
-    }
-
-    // Handle website publishing to Netlify
-    const handlePublish = async () => {
-        setIsPublishing(true)
-        const loadingToast = toast.loading('Publishing website to Netlify...')
-
-        try {
-            const response = await fetch('/api/publish-website', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ submissionId })
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to publish')
-            }
-
-            const data = await response.json()
-            setPublishedUrl(data.url)
-
-            // Notify parent component
-            if (onPublish) {
-                onPublish(data.url)
-            }
-
-            toast.success(
-                <div className="flex flex-col gap-1">
-                    <span className="font-medium">Website published!</span>
-                    <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline text-sm">
-                        {data.url}
-                    </a>
-                </div>,
-                { id: loadingToast, duration: 10000 }
-            )
-        } catch (error: any) {
-            console.error('Publish error:', error)
-            toast.error(error.message || 'Failed to publish website', { id: loadingToast })
-        } finally {
-            setIsPublishing(false)
-        }
-    }
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden h-full flex flex-col">
             {/* Header Controls */}
-            <div className="bg-gray-50 border-b border-gray-200 p-4">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Website Preview</h3>
+            <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Preview</h3>
 
                     {/* View Mode Toggle */}
-                    <div className="flex gap-2">
+                    <div className="flex bg-gray-100 rounded-lg p-1">
                         <button
                             onClick={() => setViewMode('desktop')}
-                            className={`p-2 rounded-md ${viewMode === 'desktop'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'desktop'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
+                            title="Desktop View"
                         >
-                            <Monitor className="w-5 h-5" />
+                            <Monitor className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setViewMode('mobile')}
-                            className={`p-2 rounded-md ${viewMode === 'mobile'
-                                ? 'bg-blue-100 text-blue-600'
-                                : 'bg-white text-gray-600 hover:bg-gray-100'
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'mobile'
+                                ? 'bg-white text-blue-600 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-700'
                                 }`}
+                            title="Mobile View"
                         >
-                            <Smartphone className="w-5 h-5" />
+                            <Smartphone className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
 
-                {/* Theme Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Hero Style */}
-                    <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                            <Layout className="w-4 h-4" />
-                            Hero Style
-                        </label>
-                        <select
-                            value={selectedHeroStyle}
-                            onChange={(e) => setSelectedHeroStyle(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                            <option value="1">Style 1 - Slideshow</option>
-                            <option value="2">Style 2 - Video</option>
-                            <option value="3">Style 3 - Split</option>
-                            <option value="4">Style 4 - Minimal</option>
-                            <option value="5">Style 5 - Full Screen</option>
-                        </select>
-                    </div>
-
-                    {/* Color Scheme */}
-                    <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                            <Palette className="w-4 h-4" />
-                            Color Scheme
-                        </label>
-                        <select
-                            value={selectedColorScheme}
-                            onChange={(e) => setSelectedColorScheme(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                            <option value="auto">Auto (from photos)</option>
-                            <option value="blue">Blue Professional</option>
-                            <option value="green">Green Fresh</option>
-                            <option value="purple">Purple Creative</option>
-                            <option value="orange">Orange Energetic</option>
-                            <option value="dark">Dark Elegant</option>
-                        </select>
-                    </div>
-
-                    {/* Font Pairing */}
-                    <div>
-                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                            <Type className="w-4 h-4" />
-                            Font Pairing
-                        </label>
-                        <select
-                            value={selectedFontPairing}
-                            onChange={(e) => setSelectedFontPairing(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        >
-                            <option value="modern">Modern</option>
-                            <option value="classic">Classic</option>
-                            <option value="elegant">Elegant</option>
-                            <option value="bold">Bold</option>
-                            <option value="minimal">Minimal</option>
-                            <option value="professional">Professional</option>
-                            <option value="creative">Creative</option>
-                            <option value="tech">Tech</option>
-                            <option value="friendly">Friendly</option>
-                            <option value="luxury">Luxury</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-wrap items-center gap-3 mt-4">
-                    <button
-                        onClick={handleRegenerate}
-                        disabled={isRegenerating || isPublishing}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-                    >
-                        {isRegenerating ? 'Regenerating...' : 'Apply Changes'}
-                    </button>
-
-                    <button
-                        onClick={onSaveDraft}
-                        disabled={isPublishing}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50 text-sm font-medium"
-                    >
-                        Save Draft
-                    </button>
-
-                    <button
-                        onClick={handlePublish}
-                        disabled={isPublishing || isRegenerating}
-                        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-                    >
-                        <Globe className="w-4 h-4" />
-                        {isPublishing ? 'Publishing...' : publishedUrl ? 'Republish' : 'Publish Website'}
-                    </button>
-
-                    {/* Published URL Display */}
+                {/* Publish Button */}
+                <div className="flex items-center gap-3">
                     {publishedUrl && (
                         <a
                             href={publishedUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-md text-sm font-medium hover:bg-green-100 border border-green-200"
+                            className="inline-flex items-center gap-2 px-3 py-2 text-green-700 text-sm font-medium hover:underline"
                         >
                             <ExternalLink className="w-4 h-4" />
-                            {publishedUrl.replace('https://', '')}
+                            Live Site
                         </a>
                     )}
+
+                    <button
+                        onClick={onPublish}
+                        disabled={isPublishing || isRegenerating}
+                        className={`
+                            px-4 py-2 rounded-md text-white text-sm font-medium flex items-center gap-2 transition-all
+                            ${publishedUrl
+                                ? 'bg-green-600 hover:bg-green-700'
+                                : 'bg-blue-600 hover:bg-blue-700'
+                            }
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                        `}
+                    >
+                        {isPublishing ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Publishing...
+                            </>
+                        ) : (
+                            <>
+                                <Globe className="w-4 h-4" />
+                                {publishedUrl ? 'Update Site' : 'Publish Live'}
+                            </>
+                        )}
+                    </button>
                 </div>
             </div>
 
-            {/* Preview Iframe */}
-            <div className="bg-gray-100 p-4">
-                <div className={`mx-auto bg-white shadow-lg ${viewMode === 'desktop' ? 'w-full' : 'w-[375px]'
-                    } transition-all duration-300`}>
+            {/* Preview Iframe Container */}
+            <div className="flex-1 bg-gray-100 p-8 overflow-y-auto relative">
+                {isRegenerating && (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            <span className="text-sm font-medium text-gray-600">Regenerating preview...</span>
+                        </div>
+                    </div>
+                )}
+
+                <div className={`mx-auto bg-white shadow-xl transition-all duration-300 origin-top ${viewMode === 'desktop' ? 'w-full max-w-[1200px] aspect-[16/9]' : 'w-[375px] h-[812px] border-[10px] border-gray-800 rounded-[30px]'
+                    }`}>
                     <iframe
                         id="website-preview"
-                        srcDoc={currentHtmlContent}
-                        className="w-full border-0"
-                        style={{ height: '600px' }}
+                        srcDoc={htmlContent}
+                        className={`w-full h-full ${viewMode === 'mobile' ? 'rounded-[20px]' : ''}`}
                         title="Website Preview"
                         sandbox="allow-same-origin allow-scripts"
                     />
