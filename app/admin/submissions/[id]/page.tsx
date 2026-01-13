@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { PhotoLightbox } from "@/components/PhotoLightbox"
 import WebsitePreview from "@/components/WebsitePreview"
 import VisualEditor from "@/components/editor/VisualEditor"
+import ContentEditor, { EditorCustomizations } from "@/components/ContentEditor"
 import { useAdminAuth, useSubmission, useSubmissionStatus } from "@/hooks/useAdmin"
 import { createClient } from "@/lib/supabase/client"
 import type { SubmissionStatus } from "@/types/database"
@@ -70,15 +71,19 @@ export default function SubmissionDetailPage() {
         setWebsiteHtmlContent(html)
     }
 
-    const handleUpdateCustomizations = (customizations: any) => {
+    const handleUpdateDesign = async (customizations: EditorCustomizations) => {
+        if (JSON.stringify(customizations) === JSON.stringify(websiteCustomizations)) {
+            return
+        }
         setWebsiteCustomizations(customizations)
+        await handleGenerateWebsite(customizations)
     }
 
     const [websiteContent, setWebsiteContent] = useState<any>(null)
     const [websiteCustomizations, setWebsiteCustomizations] = useState<any>(null)
     const [websiteError, setWebsiteError] = useState<string | null>(null)
     const [websitePublishedUrl, setWebsitePublishedUrl] = useState<string | null>(null)
-    const [activeTab, setActiveTab] = useState<'preview' | 'editor'>('preview')
+    const [activeTab, setActiveTab] = useState<'preview' | 'design' | 'content'>('preview')
 
     const handleEdit = () => {
         if (submission) {
@@ -215,7 +220,10 @@ export default function SubmissionDetailPage() {
     }
 
     // Handle website generation
-    const handleGenerateWebsite = async () => {
+    const handleGenerateWebsite = async (customizationsOverride?: any) => {
+        // If already generating, skip (unless this is a distinct request, but for now prevent double-click)
+        if (generatingWebsite) return
+
         setGeneratingWebsite(true)
         setWebsiteError(null)
 
@@ -227,6 +235,7 @@ export default function SubmissionDetailPage() {
                 },
                 body: JSON.stringify({
                     submissionId,
+                    customizations: customizationsOverride || websiteCustomizations
                 }),
             })
 
@@ -241,7 +250,9 @@ export default function SubmissionDetailPage() {
             setWebsiteContent(data.website?.extracted_content)
             setWebsiteCustomizations(data.website?.customizations)
             setWebsiteGenerated(true)
-            await refresh()
+            setWebsiteCustomizations(data.website?.customizations)
+            setWebsiteGenerated(true)
+            // Do not refresh() here as it causes the page to remount (loading state) which resets the editor state
         } catch (error: any) {
             console.error('Website generation error:', error)
             setWebsiteError(error.message || 'Failed to generate website')
@@ -336,7 +347,7 @@ export default function SubmissionDetailPage() {
                             {/* Generate Website Button */}
                             {(submission.status === 'approved' || submission.status === 'website_generated' || submission.status === 'paid') && (
                                 <Button
-                                    onClick={handleGenerateWebsite}
+                                    onClick={() => handleGenerateWebsite()}
                                     disabled={generatingWebsite}
                                     className="bg-purple-600 hover:bg-purple-700 text-white"
                                 >
@@ -447,7 +458,7 @@ export default function SubmissionDetailPage() {
                                 <nav className="flex -mb-px" aria-label="Tabs">
                                     <button
                                         onClick={() => setActiveTab('preview')}
-                                        className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'preview'
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'preview'
                                             ? 'border-blue-500 text-blue-600'
                                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                             }`}
@@ -455,30 +466,62 @@ export default function SubmissionDetailPage() {
                                         Live Preview
                                     </button>
                                     <button
-                                        onClick={() => setActiveTab('editor')}
-                                        className={`w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'editor'
+                                        onClick={() => setActiveTab('design')}
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'design'
                                             ? 'border-blue-500 text-blue-600'
                                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                             }`}
                                     >
-                                        Content Editor
+                                        Styles
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('content')}
+                                        className={`w-1/3 py-4 px-1 text-center border-b-2 font-medium text-sm ${activeTab === 'content'
+                                            ? 'border-blue-500 text-blue-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
+                                    >
+                                        Content
                                     </button>
                                 </nav>
                             </div>
 
-                            {activeTab === 'preview' ? (
+                            {activeTab === 'preview' && (
                                 <WebsitePreview
-                                    previewUrl={websitePreviewUrl || ''}
                                     htmlContent={websiteHtmlContent || ''}
-                                    submissionId={submissionId}
-                                    initialCustomizations={websiteCustomizations}
-                                    initialPublishedUrl={websitePublishedUrl}
-                                    onUpdateHtml={handleUpdateHtml}
-                                    onUpdateCustomizations={handleUpdateCustomizations}
-                                    onPublish={(url) => setWebsitePublishedUrl(url)}
+                                    isRegenerating={generatingWebsite}
+                                    isPublishing={false}
+                                    publishedUrl={websitePublishedUrl}
+                                    onPublish={() => {
+                                        console.log('Publish clicked')
+                                        window.open(`/website/${submissionId}`, '_blank')
+                                    }}
                                 />
-                            ) : (
-                                <div className="bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200">
+                            )}
+
+                            {activeTab === 'design' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200">
+                                    <div className="lg:col-span-1 h-[calc(100vh-300px)] lg:sticky lg:top-6">
+                                        <ContentEditor
+                                            initialCustomizations={websiteCustomizations}
+                                            onUpdate={handleUpdateDesign}
+                                            disabled={generatingWebsite}
+                                        />
+                                    </div>
+                                    <div className="lg:col-span-2">
+                                        <WebsitePreview
+                                            htmlContent={websiteHtmlContent || ''}
+                                            isRegenerating={generatingWebsite}
+                                            isPublishing={false}
+                                            publishedUrl={websitePublishedUrl}
+                                            onPublish={() => window.open(`/website/${submissionId}`, '_blank')}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'content' && (
+                                <div className="bg-gray-50 p-6 rounded-b-lg border border-t-0 border-gray-200 min-h-[500px]">
                                     <VisualEditor
                                         initialContent={{
                                             ...(websiteContent || {
