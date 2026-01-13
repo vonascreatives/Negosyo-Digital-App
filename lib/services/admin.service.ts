@@ -58,7 +58,7 @@ export const adminService = {
             .from('submissions')
             .select('*')
             .eq('id', id)
-            .single()
+            .maybeSingle()
 
         if (error) throw error
         return data
@@ -141,6 +141,103 @@ export const adminService = {
         if (error) throw error
     },
 
+    // ==================== PAYOUT MANAGEMENT ====================
+
+    /**
+     * Get all payouts (submissions with payout requests)
+     */
+    async getPendingPayouts(): Promise<SubmissionWithCreator[]> {
+        const supabase = createClient()
+
+        const { data, error } = await supabase
+            .from('submissions')
+            .select(`
+                *,
+                creators:creator_id (
+                    first_name,
+                    last_name,
+                    email,
+                    phone,
+                    payout_method,
+                    payout_details
+                )
+            `)
+            .not('payout_requested_at', 'is', null)
+            .order('payout_requested_at', { ascending: false })
+
+        if (error) throw error
+        return data || []
+    },
+
+    /**
+     * Get payout statistics
+     */
+    async getPayoutStats(): Promise<{
+        totalPending: number
+        totalPendingAmount: number
+        paidThisWeek: number
+        paidThisWeekAmount: number
+    }> {
+        const supabase = createClient()
+
+        // Get all payouts
+        const { data: payouts } = await supabase
+            .from('submissions')
+            .select('creator_payout, creator_paid_at, payout_requested_at')
+            .not('payout_requested_at', 'is', null)
+
+        const now = new Date()
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+        let totalPending = 0
+        let totalPendingAmount = 0
+        let paidThisWeek = 0
+        let paidThisWeekAmount = 0
+
+        payouts?.forEach(p => {
+            if (!p.creator_paid_at) {
+                totalPending++
+                totalPendingAmount += p.creator_payout || 0
+            } else {
+                const paidDate = new Date(p.creator_paid_at)
+                if (paidDate >= weekAgo) {
+                    paidThisWeek++
+                    paidThisWeekAmount += p.creator_payout || 0
+                }
+            }
+        })
+
+        return { totalPending, totalPendingAmount, paidThisWeek, paidThisWeekAmount }
+    },
+
+    /**
+     * Mark a single payout as paid
+     */
+    async markPayoutAsPaid(submissionId: string): Promise<void> {
+        const supabase = createClient()
+
+        const { error } = await supabase
+            .from('submissions')
+            .update({ creator_paid_at: new Date().toISOString() })
+            .eq('id', submissionId)
+
+        if (error) throw error
+    },
+
+    /**
+     * Bulk mark payouts as paid
+     */
+    async bulkMarkAsPaid(submissionIds: string[]): Promise<void> {
+        const supabase = createClient()
+
+        const { error } = await supabase
+            .from('submissions')
+            .update({ creator_paid_at: new Date().toISOString() })
+            .in('id', submissionIds)
+
+        if (error) throw error
+    },
+
     /**
      * Get creator with submission stats
      */
@@ -194,3 +291,4 @@ export const adminService = {
         if (error) throw error
     },
 }
+

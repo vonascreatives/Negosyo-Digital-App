@@ -27,6 +27,10 @@ export default function SubmissionDetailPage() {
     const [modalMessage, setModalMessage] = useState('')
     const [modalType, setModalType] = useState<'success' | 'error'>('success')
 
+    // Mark as Paid modal state
+    const [showMarkPaidModal, setShowMarkPaidModal] = useState(false)
+    const [markingPaid, setMarkingPaid] = useState(false)
+
     // Lightbox state
     const [lightboxOpen, setLightboxOpen] = useState(false)
     const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -160,12 +164,53 @@ export default function SubmissionDetailPage() {
             setModalType('success')
             setModalMessage(`Submission ${newStatus} successfully!`)
             setShowModal(true)
+
+            // If approved, send email to business owner
+            if (newStatus === 'approved') {
+                try {
+                    await fetch('/api/send-approval-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ submissionId })
+                    })
+                } catch (error) {
+                    console.error('Failed to send approval email:', error)
+                }
+            }
+
             // Refresh data to show updated status
             refresh()
         } else {
             setModalType('error')
             setModalMessage('Failed to update status. Please try again.')
             setShowModal(true)
+        }
+    }
+
+    const handleMarkAsPaid = async () => {
+        setMarkingPaid(true)
+        try {
+            const response = await fetch(`/api/submissions/${submissionId}/mark-paid`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+
+            if (!response.ok) {
+                throw new Error('Failed to mark as paid')
+            }
+
+            const data = await response.json()
+            setShowMarkPaidModal(false)
+            setModalType('success')
+            setModalMessage(`Payment confirmed! Creator balance updated to ₱${data.newBalance.toLocaleString()}`)
+            setShowModal(true)
+            refresh()
+        } catch (error: any) {
+            setModalType('error')
+            setModalMessage('Failed to mark as paid. Please try again.')
+            setShowModal(true)
+        } finally {
+            setMarkingPaid(false)
         }
     }
 
@@ -289,7 +334,7 @@ export default function SubmissionDetailPage() {
                         </div>
                         <div className="flex gap-2">
                             {/* Generate Website Button */}
-                            {(submission.status === 'approved' || submission.status === 'website_generated') && (
+                            {(submission.status === 'approved' || submission.status === 'website_generated' || submission.status === 'paid') && (
                                 <Button
                                     onClick={handleGenerateWebsite}
                                     disabled={generatingWebsite}
@@ -311,13 +356,31 @@ export default function SubmissionDetailPage() {
                                 </Button>
                             )}
 
-                            {submission.status !== 'approved' && (
+                            {/* Trigger Payout Button - Specific for Payout Requests */}
+                            {submission.payout_requested_at && (
+                                <Button
+                                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                                >
+                                    💸 Trigger Payout
+                                </Button>
+                            )}
+
+                            {submission.status !== 'approved' && submission.status !== 'paid' && (
                                 <Button
                                     onClick={() => handleStatusUpdate('approved')}
                                     disabled={updating}
                                     className="bg-green-500 hover:bg-green-600 text-white"
                                 >
                                     {updating ? 'Updating...' : 'Approve'}
+                                </Button>
+                            )}
+                            {submission.status === 'approved' && !submission.paid_at && (
+                                <Button
+                                    onClick={() => setShowMarkPaidModal(true)}
+                                    disabled={markingPaid}
+                                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                                >
+                                    {markingPaid ? 'Processing...' : '💰 Mark as Paid'}
                                 </Button>
                             )}
                             {submission.status !== 'rejected' && (
@@ -884,6 +947,63 @@ export default function SubmissionDetailPage() {
                             >
                                 Close
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mark as Paid Confirmation Modal */}
+            {showMarkPaidModal && submission && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl">
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">
+                                Confirm Payment Received
+                            </h3>
+                            <p className="text-gray-600 mb-4">
+                                Are you sure you want to mark this submission as paid?
+                            </p>
+
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <p className="text-sm font-medium text-blue-900 mb-2">This will:</p>
+                                <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                                    <li>Update submission status to "Paid"</li>
+                                    <li>Add ₱{submission.creator_payout.toLocaleString()} to creator's balance</li>
+                                    <li>Update creator's total earnings</li>
+                                </ul>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-600">Business:</span>
+                                    <span className="font-medium text-gray-900">{submission.business_name}</span>
+                                </div>
+                                <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-gray-600">Amount:</span>
+                                    <span className="font-medium text-gray-900">₱{submission.amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Creator Payout:</span>
+                                    <span className="font-bold text-green-600">₱{submission.creator_payout.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowMarkPaidModal(false)}
+                                    disabled={markingPaid}
+                                    className="flex-1 py-3 px-4 rounded-xl font-semibold border border-gray-300 hover:bg-gray-50 transition-all disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleMarkAsPaid}
+                                    disabled={markingPaid}
+                                    className="flex-1 py-3 px-4 rounded-xl font-semibold bg-blue-500 hover:bg-blue-600 text-white transition-all disabled:opacity-50"
+                                >
+                                    {markingPaid ? 'Processing...' : 'Confirm Payment'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
