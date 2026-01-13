@@ -61,18 +61,29 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
         }
 
-        console.log('9. Sending email to:', submission.owner_email)
+        console.log('9. Getting published website URL...')
+        // Get published URL from generated_websites table
+        const { data: website } = await supabase
+            .from('generated_websites')
+            .select('published_url')
+            .eq('submission_id', submissionId)
+            .single()
+
+        const publishedUrl = website?.published_url || submission.website_url || 'https://your-website.netlify.app'
+        console.log('10. Published URL:', publishedUrl)
+
+        console.log('11. Sending email to:', submission.owner_email)
         // Send approval email
         await sendApprovalEmail({
             businessName: submission.business_name,
             businessOwnerName: submission.owner_name,
             businessOwnerEmail: submission.owner_email,
-            websiteUrl: submission.website_url || 'https://your-website.netlify.app',
+            websiteUrl: publishedUrl,
             amount: submission.amount,
             submissionId: submission.id
         })
 
-        console.log('10. Email sent successfully!')
+        console.log('12. Email sent successfully!')
         return NextResponse.json({ success: true, message: 'Approval email sent' })
     } catch (error: any) {
         console.error('Error sending approval email:', error)

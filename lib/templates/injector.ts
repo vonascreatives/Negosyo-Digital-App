@@ -75,10 +75,19 @@ export function injectContent(
             photos: photos || []
         })
 
+        // First, remove any existing #hero-section (from previous generation)
+        $('#hero-section').remove()
+
         // Find and replace the hero section (first child div of main)
         const $heroSection = $('main > div').first()
         if ($heroSection.length) {
             $heroSection.replaceWith(heroHtml)
+        } else {
+            // If no hero section found, prepend to main
+            const $main = $('main').first()
+            if ($main.length) {
+                $main.prepend(heroHtml)
+            }
         }
     }
 
@@ -89,30 +98,19 @@ export function injectContent(
             services: content.services || []
         })
 
-        // Find section containing "Curated Disciplines"
-        // Find section containing "Curated Disciplines"
-        let servicesReplaced = false
+        // First, remove any existing #services-section (from previous generation)
+        $('#services-section').remove()
+
+        // Also remove old template sections containing "Curated Disciplines"
         $('h2').each((_, el) => {
             if ($(el).text().trim().includes('Curated Disciplines')) {
-                // Find the parent container section. 
                 let $section = $(el).parents().filter((_, p) => $(p).hasClass('border-b')).first()
-
-                // Crucial Check: If we grabbed a column (col-span), we need to go higher to the ROW
                 if ($section.length && ($section.attr('class') || '').includes('col-span')) {
                     const $higher = $section.parents().filter((_, p) => $(p).hasClass('border-b')).not($section).first()
                     if ($higher.length) $section = $higher
                 }
-
-                // If the section also contains "Structured for Outcome" or "About", it's too broad.
-                const rawText = $section.text()
-                if (rawText.includes('Structured for Outcome') || rawText.includes('About')) {
-                    // Fallback: try the immediate parent div if it's not the body
-                    $section = $(el).parent()
-                    if ($section.prop('tagName') !== 'BODY') {
-                        $section.remove() // remove old
-                    }
-                } else if ($section.length) {
-                    $section.remove() // remove old
+                if ($section.length) {
+                    $section.remove()
                 }
             }
         })
@@ -135,24 +133,19 @@ export function injectContent(
             usps: content.unique_selling_points
         })
 
-        // Find and remove old About sections
+        // First, remove any existing #about-section (from previous generation)
+        $('#about-section').remove()
+
+        // Also remove old template sections
         $('h2').each((_, el) => {
             const text = $(el).text().trim()
-            if (text.includes('Structured for Outcome') || text.includes('Signature Cohorts') || text.includes('Why Choose')) {
+            if (text.includes('Structured for Outcome') || text.includes('Signature Cohorts') || text.includes('Why Choose') || text.includes('Our Philosophy')) {
                 let $section = $(el).parents().filter((_, p) => $(p).hasClass('border-b')).first()
-
                 if ($section.length && ($section.attr('class') || '').includes('col-span')) {
                     const $higher = $section.parents().filter((_, p) => $(p).hasClass('border-b')).not($section).first()
                     if ($higher.length) $section = $higher
                 }
-
-                const rawText = $section.text()
-                if (rawText.includes('Curated Disciplines')) {
-                    $section = $(el).parent()
-                    if ($section.prop('tagName') !== 'BODY') {
-                        $section.remove()
-                    }
-                } else if ($section.length) {
+                if ($section.length) {
                     $section.remove()
                 }
             }
@@ -176,6 +169,10 @@ export function injectContent(
             address: content.contact?.address
         })
 
+        // First, remove any existing #footer-section (from previous generation)
+        $('#footer-section').remove()
+
+        // Also replace any existing footer tag
         if ($('footer').length) {
             $('footer').replaceWith(footerHtml)
         } else {

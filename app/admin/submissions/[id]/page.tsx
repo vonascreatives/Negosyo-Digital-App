@@ -65,10 +65,47 @@ export default function SubmissionDetailPage() {
     const [websiteGenerated, setWebsiteGenerated] = useState(false)
     const [websitePreviewUrl, setWebsitePreviewUrl] = useState<string | null>(null)
     const [websiteHtmlContent, setWebsiteHtmlContent] = useState<string | null>(null)
+    const [publishingWebsite, setPublishingWebsite] = useState(false)
 
     // Handler to update HTML content from WebsitePreview
     const handleUpdateHtml = (html: string) => {
         setWebsiteHtmlContent(html)
+    }
+
+    // Handler to publish website to Netlify
+    const handlePublishWebsite = async () => {
+        if (publishingWebsite) return
+
+        setPublishingWebsite(true)
+        try {
+            const response = await fetch('/api/publish-website', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    submissionId,
+                }),
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to publish website')
+            }
+
+            const data = await response.json()
+            setWebsitePublishedUrl(data.url)
+            setModalType('success')
+            setModalMessage(`Website published successfully! View at: ${data.url}`)
+            setShowModal(true)
+        } catch (error: any) {
+            console.error('Publish error:', error)
+            setModalType('error')
+            setModalMessage(error.message || 'Failed to publish website')
+            setShowModal(true)
+        } finally {
+            setPublishingWebsite(false)
+        }
     }
 
     const handleUpdateDesign = async (customizations: EditorCustomizations) => {
@@ -345,7 +382,7 @@ export default function SubmissionDetailPage() {
                         </div>
                         <div className="flex gap-2">
                             {/* Generate Website Button */}
-                            {(submission.status === 'approved' || submission.status === 'website_generated' || submission.status === 'paid') && (
+                            {(submission.status == 'submitted' || submission.status === 'approved' || submission.status === 'website_generated' || submission.status === 'paid') && (
                                 <Button
                                     onClick={() => handleGenerateWebsite()}
                                     disabled={generatingWebsite}
@@ -490,12 +527,9 @@ export default function SubmissionDetailPage() {
                                 <WebsitePreview
                                     htmlContent={websiteHtmlContent || ''}
                                     isRegenerating={generatingWebsite}
-                                    isPublishing={false}
+                                    isPublishing={publishingWebsite}
                                     publishedUrl={websitePublishedUrl}
-                                    onPublish={() => {
-                                        console.log('Publish clicked')
-                                        window.open(`/website/${submissionId}`, '_blank')
-                                    }}
+                                    onPublish={handlePublishWebsite}
                                 />
                             )}
 
@@ -512,9 +546,9 @@ export default function SubmissionDetailPage() {
                                         <WebsitePreview
                                             htmlContent={websiteHtmlContent || ''}
                                             isRegenerating={generatingWebsite}
-                                            isPublishing={false}
+                                            isPublishing={publishingWebsite}
                                             publishedUrl={websitePublishedUrl}
-                                            onPublish={() => window.open(`/website/${submissionId}`, '_blank')}
+                                            onPublish={handlePublishWebsite}
                                         />
                                     </div>
                                 </div>
