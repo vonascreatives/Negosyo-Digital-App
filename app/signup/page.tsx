@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import Logo from "@/public/logo.png"
+import { Eye, EyeOff, ArrowLeft, Mail, Lock, User, Phone, Loader2 } from "lucide-react"
 
 export default function SignupPage() {
     const router = useRouter()
@@ -65,81 +67,114 @@ export default function SignupPage() {
     const error = authError || validationError
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
-            {/* Header */}
+        <div className="min-h-screen w-full flex bg-white font-sans">
+            {/* Left Side - Aesthetic Panel (Hidden on mobile) */}
+            <div className="hidden lg:flex lg:w-1/2 relative bg-zinc-900 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 to-black/60 z-10" />
 
-            <br />
+                {/* Abstract shapes/blur for depth */}
+                <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl opacity-50 animate-pulse" />
+                <div className="absolute top-1/2 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl opacity-30" />
 
-            {/* Main Content */}
-            <div className="flex-1 px-6 pb-6">
-                <div className="max-w-md mx-auto">
-                    {/* Title */}
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                        Let's get you started.
-                    </h1>
-                    <p className="text-sm text-gray-500 mb-8">
-                        Join the community of Filipino creators digitizing local businesses.
-                    </p>
+                <div className="relative z-20 flex flex-col justify-between w-full p-12 text-white">
+                    <div>
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10">
+                                <Image src={Logo} alt="Logo" width={24} height={24} className="opacity-90" />
+                            </div>
+                            <span className="font-semibold text-lg tracking-wide">Negosyo Digital</span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <h2 className="text-4xl md:text-5xl font-bold font-sans leading-tight">
+                            Start Your <br />
+                            <span className="text-emerald-400">Digital Journey.</span>
+                        </h2>
+                        <p className="text-zinc-400 text-lg max-w-md leading-relaxed">
+                            Join thousands of Filipino entrepreneurs digitizing their businesses. Create your store, manage inventory, and grow today.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-zinc-500">
+                        <p>© 2026 Negosyo Digital</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Side - Form */}
+            <div className="flex-1 w-full flex flex-col justify-center px-6 py-12 lg:px-20 xl:px-32 relative overflow-y-auto">
+                <button
+                    onClick={() => router.back()}
+                    className="absolute top-8 left-6 lg:left-12 p-2 text-zinc-400 hover:text-zinc-900 transition-colors rounded-full hover:bg-zinc-100"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+
+                <div className="w-full max-w-md mx-auto space-y-8 mt-12 lg:mt-0">
+                    {/* Mobile Logo Display */}
+                    <div className="flex flex-col items-center gap-4 lg:hidden mb-8">
+                        <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center shadow-lg shadow-zinc-900/20">
+                            <Image src={Logo} alt="Logo" width={28} height={28} className="opacity-100" />
+                        </div>
+                        <span className="font-semibold text-xl tracking-tight text-zinc-900">Negosyo Digital</span>
+                    </div>
+
+                    <div className="space-y-2 text-center lg:text-left">
+                        <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Create Account</h1>
+                        <p className="text-zinc-500">
+                            Enter your details to register as a creator.
+                        </p>
+                    </div>
 
                     {/* Error Message */}
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <p className="text-sm text-red-600 font-medium">{error}</p>
+                        <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                            {error}
                         </div>
                     )}
 
                     {/* Success Message */}
                     {success && (
-                        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-green-600 font-medium">
-                                Account created successfully! Redirecting...
-                            </p>
+                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                            Account created successfully! Redirecting...
                         </div>
                     )}
 
-                    {/* Signup Form */}
                     <form onSubmit={handleSignup} className="space-y-5">
-                        {/* First Name */}
-                        <div className="space-y-2">
-                            <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                                First Name
-                            </Label>
-                            <Input
-                                id="firstName"
-                                type="text"
-                                placeholder="Juan"
-                                value={firstName}
-                                onChange={(e) => setFirstName(e.target.value)}
-                                required
-                                disabled={loading}
-                                className="h-12 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
-                            />
-                        </div>
-
-                        {/* Middle Name */}
-                        <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="middleName" className="text-sm font-medium text-gray-700">
-                                    Middle Name
-                                </Label>
-                                <span className="text-xs text-gray-400">Optional</span>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="firstName" className="text-zinc-700 font-medium">First Name</Label>
+                                <Input
+                                    id="firstName"
+                                    type="text"
+                                    placeholder="Juan"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    required
+                                    disabled={loading}
+                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all"
+                                />
                             </div>
-                            <Input
-                                id="middleName"
-                                type="text"
-                                placeholder="Santos"
-                                value={middleName}
-                                onChange={(e) => setMiddleName(e.target.value)}
-                                disabled={loading}
-                                className="h-12 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
-                            />
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="middleName" className="text-zinc-700 font-medium">Middle Name</Label>
+                                    <span className="text-xs text-zinc-400">Optional</span>
+                                </div>
+                                <Input
+                                    id="middleName"
+                                    type="text"
+                                    placeholder="Santos"
+                                    value={middleName}
+                                    onChange={(e) => setMiddleName(e.target.value)}
+                                    disabled={loading}
+                                    className="h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all"
+                                />
+                            </div>
                         </div>
 
-                        {/* Last Name */}
                         <div className="space-y-2">
-                            <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                                Last Name
-                            </Label>
+                            <Label htmlFor="lastName" className="text-zinc-700 font-medium">Last Name</Label>
                             <Input
                                 id="lastName"
                                 type="text"
@@ -148,17 +183,15 @@ export default function SignupPage() {
                                 onChange={(e) => setLastName(e.target.value)}
                                 required
                                 disabled={loading}
-                                className="h-12 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
+                                className="h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all"
                             />
                         </div>
 
-                        {/* Mobile Number */}
+
                         <div className="space-y-2">
-                            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-                                Mobile Number
-                            </Label>
-                            <div className="flex gap-2">
-                                <div className="flex items-center gap-2 px-3 h-12 bg-white border border-gray-200 rounded-lg">
+                            <Label htmlFor="phone" className="text-zinc-700 font-medium">Mobile Number</Label>
+                            <div className="relative flex gap-3">
+                                <div className="flex items-center gap-2 px-3 h-12 bg-zinc-50 border border-zinc-200 rounded-xl shrink-0">
                                     <Image
                                         src="/ph-flag.png"
                                         alt="PH"
@@ -166,9 +199,12 @@ export default function SignupPage() {
                                         height={16}
                                         className="rounded-sm"
                                     />
-                                    <span className="text-sm font-medium text-gray-700">+63</span>
+                                    <span className="text-sm font-medium text-zinc-700">+63</span>
                                 </div>
-                                <div className="flex-1 relative">
+                                <div className="relative flex-1 group">
+                                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                        <Phone className="w-5 h-5 text-zinc-400 group-focus-within:text-emerald-600 transition-colors" />
+                                    </div>
                                     <Input
                                         id="phone"
                                         type="tel"
@@ -177,36 +213,37 @@ export default function SignupPage() {
                                         onChange={(e) => setPhone(e.target.value)}
                                         required
                                         disabled={loading}
-                                        className="h-12 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
+                                        className="pl-11 h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all w-full"
                                     />
-
                                 </div>
                             </div>
                         </div>
 
-                        {/* Email Address */}
                         <div className="space-y-2">
-                            <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                                Email Address
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="juan@gmail.com"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                disabled={loading}
-                                className="h-12 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
-                            />
+                            <Label htmlFor="email" className="text-zinc-700 font-medium">Email Address</Label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <Mail className="w-5 h-5 text-zinc-400 group-focus-within:text-emerald-600 transition-colors" />
+                                </div>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="juan@gmail.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    disabled={loading}
+                                    className="pl-11 h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all"
+                                />
+                            </div>
                         </div>
 
-                        {/* Password */}
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                                Password
-                            </Label>
-                            <div className="relative">
+                            <Label htmlFor="password" className="text-zinc-700 font-medium">Password</Label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                    <Lock className="w-5 h-5 text-zinc-400 group-focus-within:text-emerald-600 transition-colors" />
+                                </div>
                                 <Input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
@@ -215,41 +252,32 @@ export default function SignupPage() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                     disabled={loading}
-                                    className="h-12 pr-10 bg-white border-gray-200 focus:border-green-500 focus:ring-green-500"
+                                    className="pl-11 pr-11 h-12 bg-zinc-50 border-zinc-200 focus:border-emerald-600 focus:ring-emerald-600/20 rounded-xl transition-all"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-400 hover:text-zinc-600 transition-colors"
                                 >
-                                    {showPassword ? (
-                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    )}
+                                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 h-1 bg-gray-200 rounded-full">
+                            <div className="flex items-center gap-2 mt-2">
+                                <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full rounded-full transition-all ${password.length === 0 ? 'w-0 bg-gray-200' :
+                                        className={`h-full rounded-full transition-all duration-500 ease-in-out ${password.length === 0 ? 'w-0' :
                                             password.length < 6 ? 'w-1/3 bg-red-500' :
-                                                password.length < 10 ? 'w-2/3 bg-yellow-500' :
-                                                    'w-full bg-green-500'
+                                                password.length < 10 ? 'w-2/3 bg-yellow-400' :
+                                                    'w-full bg-emerald-500'
                                             }`}
                                     ></div>
                                 </div>
-                                <span className={`text-xs font-medium ${password.length === 0 ? 'text-gray-400' :
+                                <span className={`text-xs font-medium ${password.length === 0 ? 'text-zinc-400' :
                                     password.length < 6 ? 'text-red-500' :
                                         password.length < 10 ? 'text-yellow-500' :
-                                            'text-green-500'
+                                            'text-emerald-500'
                                     }`}>
-                                    {password.length === 0 ? 'At least 6 chars' :
+                                    {password.length === 0 ? 'Min 6 chars' :
                                         password.length < 6 ? 'Weak' :
                                             password.length < 10 ? 'Medium' :
                                                 'Strong'}
@@ -257,41 +285,31 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        {/* Create Account Button */}
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full h-12 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition-colors mt-8"
+                            className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-white font-semibold rounded-xl transition-all shadow-lg shadow-zinc-900/20 hover:shadow-zinc-900/30 active:scale-[0.98] mt-4"
                         >
                             {loading ? (
                                 <span className="flex items-center gap-2">
-                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                    <Loader2 className="animate-spin h-5 w-5" />
                                     Creating account...
                                 </span>
                             ) : (
-                                <span className="flex items-center justify-center gap-2">
-                                    Create Account
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                    </svg>
-                                </span>
+                                "Create Account"
                             )}
                         </Button>
                     </form>
 
-                    {/* Divider */}
-                    <div className="flex items-center gap-4 my-6">
-                        <div className="flex-1 border-t border-gray-200" />
-                        <span className="text-xs text-gray-400 uppercase tracking-wider">
-                            Or continue with
-                        </span>
-                        <div className="flex-1 border-t border-gray-200" />
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-zinc-200"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white px-2 text-zinc-500 tracking-wider">Or continue with</span>
+                        </div>
                     </div>
 
-                    {/* Social Login Button */}
                     <Button
                         type="button"
                         variant="outline"
@@ -303,9 +321,9 @@ export default function SignupPage() {
                             }
                         }}
                         disabled={loading}
-                        className="w-full h-12 bg-white border-gray-200 hover:bg-gray-50 font-medium"
+                        className="w-full h-12 bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 font-medium rounded-xl flex items-center justify-center gap-3 transition-all"
                     >
-                        <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path
                                 fill="#4285F4"
                                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -323,21 +341,15 @@ export default function SignupPage() {
                                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                             />
                         </svg>
-                        Continue with Google
+                        Google
                     </Button>
 
-                    {/* Login Link */}
-                    <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-600">
-                            Already have an account?{" "}
-                            <Link
-                                href="/login"
-                                className="font-semibold text-green-500 hover:text-green-600 transition-colors"
-                            >
-                                Log In
-                            </Link>
-                        </p>
-                    </div>
+                    <p className="text-center text-sm text-zinc-500 pb-8">
+                        Already have an account?{" "}
+                        <Link href="/login" className="font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
+                            Log In
+                        </Link>
+                    </p>
                 </div>
             </div>
         </div>

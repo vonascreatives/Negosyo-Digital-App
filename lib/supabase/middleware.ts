@@ -55,6 +55,22 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
+    // Check if user is trying to access admin routes
+    if (request.nextUrl.pathname.startsWith('/admin')) {
+        const { data: creator } = await supabase
+            .from('creators')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+        if (creator?.role !== 'admin') {
+            // Not an admin, redirect to dashboard
+            const url = request.nextUrl.clone()
+            url.pathname = '/dashboard'
+            return NextResponse.redirect(url)
+        }
+    }
+
     // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
     // creating a new response object with NextResponse.next() make sure to:
     // 1. Pass the request in it, like so:
