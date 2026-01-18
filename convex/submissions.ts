@@ -119,10 +119,11 @@ export const getByStatus = query({
             v.literal('in_review'),
             v.literal('approved'),
             v.literal('rejected'),
-            v.literal('website_generated'),
+            v.literal('deployed'),
             v.literal('pending_payment'),
             v.literal('paid'),
-            v.literal('completed')
+            v.literal('completed'),
+            v.literal('website_generated')
         ),
     },
     handler: async (ctx, args) => {
@@ -161,10 +162,11 @@ export const create = mutation({
             v.literal('in_review'),
             v.literal('approved'),
             v.literal('rejected'),
-            v.literal('website_generated'),
+            v.literal('deployed'),
             v.literal('pending_payment'),
             v.literal('paid'),
-            v.literal('completed')
+            v.literal('completed'),
+            v.literal('website_generated')
         )),
     },
     handler: async (ctx, args) => {
@@ -224,6 +226,7 @@ export const update = mutation({
 
 /**
  * Update submission status
+ * Workflow: submitted -> in_review -> approved -> deployed -> pending_payment -> paid
  */
 export const updateStatus = mutation({
     args: {
@@ -234,10 +237,11 @@ export const updateStatus = mutation({
             v.literal('in_review'),
             v.literal('approved'),
             v.literal('rejected'),
-            v.literal('website_generated'),
+            v.literal('deployed'),
             v.literal('pending_payment'),
             v.literal('paid'),
-            v.literal('completed')
+            v.literal('completed'),
+            v.literal('website_generated')
         ),
     },
     handler: async (ctx, args) => {
