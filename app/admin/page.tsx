@@ -3,14 +3,14 @@
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { useClerk } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAdminAuth, useSubmissions } from "@/hooks/useAdmin"
-import type { SubmissionStatus } from "@/types/database"
 
 export default function AdminDashboard() {
     const router = useRouter()
+    const { signOut } = useClerk()
     const { isAdmin, loading: authLoading } = useAdminAuth()
     const { submissions, loading: submissionsLoading, refresh } = useSubmissions()
     const [filter, setFilter] = useState<string>('all')
@@ -19,8 +19,7 @@ export default function AdminDashboard() {
     const itemsPerPage = 10
 
     const handleLogout = async () => {
-        const supabase = createClient()
-        await supabase.auth.signOut()
+        await signOut()
         router.push('/login')
     }
 

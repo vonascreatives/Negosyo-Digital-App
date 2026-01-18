@@ -20,8 +20,12 @@ export default function SubmissionDetailPage() {
     const submissionId = params.id as string
 
     const { isAdmin, loading: authLoading } = useAdminAuth()
-    const { submission, creator, loading: dataLoading, refresh } = useSubmission(submissionId)
+    const { submission: rawSubmission, creator: rawCreator, loading: dataLoading, refresh } = useSubmission(submissionId)
     const { updateStatus, updating } = useSubmissionStatus(submissionId)
+
+    // Type assertions to work with both old and new data structures
+    const submission = rawSubmission as any
+    const creator = rawCreator as any
 
     // Modal state
     const [showModal, setShowModal] = useState(false)
@@ -733,7 +737,7 @@ export default function SubmissionDetailPage() {
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 gap-4">
-                                {(isEditing ? editedData.photos : (submission.photos || [])).map((url, index) => (
+                                {(isEditing ? editedData.photos : (submission.photos || [])).map((url: string, index: number) => (
                                     <div
                                         key={index}
                                         className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden group cursor-pointer"
