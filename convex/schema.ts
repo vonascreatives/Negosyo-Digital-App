@@ -52,17 +52,19 @@ export default defineSchema({
         websiteUrl: v.optional(v.string()),
         websiteCode: v.optional(v.string()),
 
-        // Status
+        // Status workflow: submitted -> in_review -> approved -> deployed -> pending_payment -> paid
+        // Note: 'completed' and 'website_generated' kept for backward compatibility with existing data
         status: v.union(
             v.literal('draft'),
             v.literal('submitted'),
             v.literal('in_review'),
             v.literal('approved'),
             v.literal('rejected'),
-            v.literal('website_generated'),
+            v.literal('deployed'),
             v.literal('pending_payment'),
             v.literal('paid'),
-            v.literal('completed')
+            v.literal('completed'),
+            v.literal('website_generated')
         ),
 
         // Payment
@@ -78,4 +80,21 @@ export default defineSchema({
         .index('by_creatorId', ['creatorId'])
         .index('by_status', ['status'])
         .index('by_payoutRequested', ['payoutRequestedAt']),
+
+    // Generated websites
+    generatedWebsites: defineTable({
+        submissionId: v.id('submissions'),
+        templateName: v.string(),
+        extractedContent: v.any(), // JSON object with business content
+        customizations: v.optional(v.any()), // JSON object with design customizations
+        htmlContent: v.optional(v.string()),
+        cssContent: v.optional(v.string()),
+        htmlStorageId: v.optional(v.id('_storage')), // Store HTML in Convex storage
+        status: v.union(v.literal('draft'), v.literal('published')),
+        publishedUrl: v.optional(v.string()), // Netlify URL
+        netlifySiteId: v.optional(v.string()),
+        publishedAt: v.optional(v.number()), // Timestamp
+    })
+        .index('by_submissionId', ['submissionId'])
+        .index('by_status', ['status']),
 });

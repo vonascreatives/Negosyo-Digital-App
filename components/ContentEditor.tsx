@@ -32,7 +32,7 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
         fontPairingId: initialCustomizations?.fontPairingId || 'modern'
     })
 
-    const [expandedSection, setExpandedSection] = useState<string | null>('layout')
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['layout']))
     const [hasChanges, setHasChanges] = useState(false)
 
     /*
@@ -76,7 +76,15 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
     }
 
     const toggleSection = (section: string) => {
-        setExpandedSection(expandedSection === section ? null : section)
+        setExpandedSections(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(section)) {
+                newSet.delete(section)
+            } else {
+                newSet.add(section)
+            }
+            return newSet
+        })
     }
 
     return (
@@ -99,10 +107,10 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                             <Layers className="w-4 h-4" />
                             <span>Section Styles</span>
                         </div>
-                        {expandedSection === 'layout' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {expandedSections.has('layout') ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
 
-                    {expandedSection === 'layout' && (
+                    {expandedSections.has('layout') && (
                         <div className="p-4 space-y-4 bg-white">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -171,11 +179,11 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     disabled={disabled}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
-                                    <option value="1">Standard Multi-Column (Default)</option>
-                                    <option value="2">Minimal Centered</option>
-                                    <option value="3">Bold Brand Background</option>
-                                    <option value="4">Newsletter Focused</option>
-                                    <option value="5">Map & Contact Dark</option>
+                                    <option value="1">Minimal Centered (Default)</option>
+                                    <option value="2">Modern Multi-Column</option>
+                                    <option value="3">Big Impact Dark</option>
+                                    <option value="4">Minimal Bar</option>
+                                    <option value="5">Split Black & White</option>
                                 </select>
                             </div>
                         </div>
@@ -192,10 +200,10 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                             <Palette className="w-4 h-4" />
                             <span>Appearance</span>
                         </div>
-                        {expandedSection === 'appearance' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {expandedSections.has('appearance') ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </button>
 
-                    {expandedSection === 'appearance' && (
+                    {expandedSections.has('appearance') && (
                         <div className="p-4 space-y-4 bg-white">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">

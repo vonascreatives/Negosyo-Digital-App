@@ -65,6 +65,18 @@ export function injectContent(
 ): string {
     const $ = cheerio.load(templateHtml)
 
+    console.log('=== INJECTOR DEBUG ===')
+    console.log('Content received:', {
+        business_name: content?.business_name,
+        tagline: content?.tagline,
+        about: content?.about,
+        services: content?.services?.length,
+        contact: content?.contact
+    })
+    console.log('Customizations:', customizations)
+    console.log('Photos:', photos?.length)
+    console.log('Main element found:', $('main').length > 0)
+
     // 0. Apply Hero Style if provided (replaces entire hero section)
     if (customizations?.heroStyle) {
         const heroHtml = generateHeroHtml(customizations.heroStyle, {
@@ -75,20 +87,28 @@ export function injectContent(
             photos: photos || []
         })
 
+        // Wrap hero HTML with an ID for easier targeting
+        const heroHtmlWithId = `<div id="hero-section">${heroHtml}</div>`
+
         // First, remove any existing #hero-section (from previous generation)
         $('#hero-section').remove()
 
         // Find and replace the hero section (first child div of main)
         const $heroSection = $('main > div').first()
         if ($heroSection.length) {
-            $heroSection.replaceWith(heroHtml)
+            $heroSection.replaceWith(heroHtmlWithId)
+            console.log('Hero: replaced existing section')
         } else {
             // If no hero section found, prepend to main
             const $main = $('main').first()
             if ($main.length) {
-                $main.prepend(heroHtml)
+                $main.prepend(heroHtmlWithId)
+                console.log('Hero: prepended to main')
+            } else {
+                console.log('Hero: ERROR - no main element found')
             }
         }
+        console.log('Hero section generated, length:', heroHtml.length)
     }
 
     // 0.a. Apply Services Style
@@ -98,7 +118,13 @@ export function injectContent(
             services: content.services || []
         })
 
+        console.log('=== SERVICES INJECTION ===')
+        console.log('Services HTML includes id="services-section":', servicesHtml.includes('id="services-section"'))
+        console.log('Services HTML preview:', servicesHtml.substring(0, 200))
+
         // First, remove any existing #services-section (from previous generation)
+        const existingServices = $('#services-section').length
+        console.log('Existing #services-section before remove:', existingServices)
         $('#services-section').remove()
 
         // Also remove old template sections containing "Curated Disciplines"
@@ -119,9 +145,15 @@ export function injectContent(
         const $main = $('main').first()
         if ($main.length) {
             $main.append(servicesHtml)
+            console.log('Services: appended to main')
+            // Verify it was added
+            const nowHasServices = $main.find('#services-section').length > 0 || $main.html()?.includes('id="services-section"')
+            console.log('Services in main after append:', nowHasServices)
         } else {
             $('body').append(servicesHtml)
+            console.log('Services: appended to body (no main)')
         }
+        console.log('Services section generated, length:', servicesHtml.length)
     }
 
     // 0.b. Apply About/Features Style
@@ -133,7 +165,13 @@ export function injectContent(
             usps: content.unique_selling_points
         })
 
+        console.log('=== ABOUT INJECTION ===')
+        console.log('About HTML includes id="about-section":', aboutHtml.includes('id="about-section"'))
+        console.log('About HTML preview:', aboutHtml.substring(0, 200))
+
         // First, remove any existing #about-section (from previous generation)
+        const existingAbout = $('#about-section').length
+        console.log('Existing #about-section before remove:', existingAbout)
         $('#about-section').remove()
 
         // Also remove old template sections
@@ -155,9 +193,15 @@ export function injectContent(
         const $main = $('main').first()
         if ($main.length) {
             $main.append(aboutHtml)
+            console.log('About: appended to main')
+            // Verify it was added
+            const nowHasAbout = $main.find('#about-section').length > 0 || $main.html()?.includes('id="about-section"')
+            console.log('About in main after append:', nowHasAbout)
         } else {
             $('body').append(aboutHtml)
+            console.log('About: appended to body (no main)')
         }
+        console.log('About section generated, length:', aboutHtml.length)
     }
 
     // 0.c. Apply Footer Style
@@ -169,15 +213,28 @@ export function injectContent(
             address: content.contact?.address
         })
 
+        console.log('=== FOOTER INJECTION ===')
+        console.log('Footer HTML includes id="footer-section":', footerHtml.includes('id="footer-section"'))
+        console.log('Footer HTML preview:', footerHtml.substring(0, 200))
+
         // First, remove any existing #footer-section (from previous generation)
+        const existingFooter = $('#footer-section').length
+        console.log('Existing #footer-section before remove:', existingFooter)
         $('#footer-section').remove()
 
         // Also replace any existing footer tag
         if ($('footer').length) {
             $('footer').replaceWith(footerHtml)
+            console.log('Footer: replaced existing footer tag')
         } else {
             $('body').append(footerHtml)
+            console.log('Footer: appended to body (no footer tag)')
         }
+
+        // Verify it was added
+        const nowHasFooter = $('#footer-section').length > 0 || $('body').html()?.includes('id="footer-section"')
+        console.log('Footer in DOM after append:', nowHasFooter)
+        console.log('Footer section generated, length:', footerHtml.length)
     }
 
     // 1. Replace page title
@@ -685,84 +742,114 @@ export function injectContent(
 
     // Final Reorder Enforcement: Hero -> About -> Services -> Footer
 
-    // STRUCTURE-BASED HERO SELECTOR (Most Reliable)
-    // In atelier.html, Hero is the first child of <main>.
-    let $hero = $('main > div').first()
+    // CLEANUP FIRST: Remove old template sections that might conflict
+    // Only remove elements that are NOT inside our injected sections
+    $('h2').each((_, el) => {
+        const $el = $(el)
+        const text = $el.text().trim()
 
-    // Fallback: If no main, try the first section-like div in body wrapper
-    if (!$hero.length) {
-        $hero = $('body > div > div').first() // Wrapper > Main/Content
-    }
-
-    // Tag it so we know we found it
-    if ($hero.length) $hero.attr('id', 'hero-found-target')
-
-    const $about = $('#about-section')
-    const $services = $('#services-section')
-    let $footer = $('#footer-section')
-
-    // CLEANUP: Robust Text-Based Removal
-    $('h2').filter((_, el) => {
-        const t = $(el).text().trim()
-        return t.includes('Curated Disciplines') || t.includes('Selected Works') || t.includes('Service Output')
-    }).each((_, el) => {
-        const $p = $(el).closest('div[class*="border"]');
-        // Remove ONLY if it's NOT our injected section
-        if ($p.closest('#services-section').length === 0) {
-            $p.remove()
-            // Also remove immediate next sibling if it looks like a grid (atelier layout)
-            // In atelier.html, the grid is a separate sibling div sometimes?
-            // Actually, lines 393 show grid is sibling to header container.
-            // We'll trust that we removed the container header.
-            // But let's be safe and look for the grid manually.
+        // Skip if this h2 is inside one of our injected sections
+        if ($el.closest('#hero-section, #about-section, #services-section, #footer-section').length > 0) {
+            return
         }
-    })
 
-    // Cleanup "Signature Cohorts" / About legacy
-    $('h2').filter((_, el) => {
-        const t = $(el).text().trim()
-        return t.includes('Signature Cohorts') || t.includes('Structured for Outcome') || t.includes('What We Offer')
-    }).each((_, el) => {
-        const $p = $(el).closest('div[class*="border"]');
-        // Only if not ours
-        if ($p.closest('#about-section').length === 0 && $p.attr('id') !== 'hero-found-target') {
-            // Careful not to delete Hero (which has "What We Offer" button sometimes?) 
-            // Actually Line 357 "Explore What we Offer" is a button.
-            // We targeted 'h2'. Hero has 'h1'. Should be safe.
-            $p.remove()
+        // Remove old template sections
+        if (text.includes('Curated Disciplines') || text.includes('Selected Works') ||
+            text.includes('Service Output') || text.includes('Signature Cohorts') ||
+            text.includes('Structured for Outcome')) {
+            const $parent = $el.closest('div[class*="border"], section, div[class*="py-"]')
+            if ($parent.length) {
+                $parent.remove()
+            }
         }
     })
 
     // Remove any empty border divs left behind
     $('div.border-b').filter((_, el) => $(el).text().trim() === '').remove()
 
+    // Get main element
+    const $main = $('main').first()
 
-    // Strict Re-insertion
-    if ($about.length && $services.length) {
+    // Get sections by ID - get fresh references after cleanup
+    const $hero = $('#hero-section')
+    const $about = $('#about-section')
+    const $services = $('#services-section')
+    const $footer = $('#footer-section')
 
-        // 1. Position About
-        if ($hero.length) {
-            $about.insertAfter($hero)
-        } else {
-            // If selectors fail, append to MAIN, not body (to stay in wrapper)
-            $('main').prepend($about)
+    console.log('=== REORDER DEBUG ===')
+    console.log('Before reorder - Hero in DOM:', $hero.length > 0, 'About:', $about.length > 0, 'Services:', $services.length > 0, 'Footer:', $footer.length > 0)
+
+    // Robust reordering: Detach all sections, clear main children, re-append in order
+    if ($main.length) {
+        // Store the HTML content of each section (detaching preserves content)
+        const heroHtml = $hero.length ? $.html($hero) : ''
+        const aboutHtml = $about.length ? $.html($about) : ''
+        const servicesHtml = $services.length ? $.html($services) : ''
+        const footerHtml = $footer.length ? $.html($footer) : ''
+
+        console.log('Section HTML lengths - Hero:', heroHtml.length, 'About:', aboutHtml.length, 'Services:', servicesHtml.length, 'Footer:', footerHtml.length)
+
+        // Remove all our sections from wherever they are
+        $hero.remove()
+        $about.remove()
+        $services.remove()
+        $footer.remove()
+
+        // Also remove any remaining template content from main (keeping only basic structure)
+        $main.children().each((_, child) => {
+            const $child = $(child)
+            // Keep only structural elements, remove template content
+            if (!$child.is('nav, header') && $child.find('h1, h2').length > 0) {
+                // Check if it looks like template content
+                const text = $child.text()
+                if (text.includes('Atelier') || text.includes('Curated') || text.includes('Cohorts')) {
+                    $child.remove()
+                }
+            }
+        })
+
+        // Re-append sections in correct order: Hero -> About -> Services
+        if (heroHtml) {
+            $main.append(heroHtml)
+        }
+        if (aboutHtml) {
+            $main.append(aboutHtml)
+        }
+        if (servicesHtml) {
+            $main.append(servicesHtml)
         }
 
-        // 2. Position Services AFTER About
-        $services.insertAfter($about)
-
-        // 3. Position Footer AFTER Services
-        if ($footer.length) {
-            $footer.insertAfter($services)
+        // Footer goes after main (in body)
+        if (footerHtml) {
+            // Remove any existing footer tags first
+            $('footer').not('#footer-section').remove()
+            $main.after(footerHtml)
         }
     }
 
-    // If Footer exists but wasn't moved (e.g. Services missing), force it to bottom
-    if ($footer.length && !$footer.prev().is('#services-section')) {
-        $('body').append($footer)
-    }
+    console.log('=== FINAL STATE ===')
+    console.log('Main children count:', $main.children().length)
 
-    return $.html()
+    // Debug: Check what's in main
+    const mainHtml = $main.html() || ''
+    console.log('Main HTML has hero-section:', mainHtml.includes('id="hero-section"'))
+    console.log('Main HTML has about-section:', mainHtml.includes('id="about-section"'))
+    console.log('Main HTML has services-section:', mainHtml.includes('id="services-section"'))
+
+    // Debug: Check body for footer
+    const bodyHtml = $('body').html() || ''
+    console.log('Body HTML has footer-section:', bodyHtml.includes('id="footer-section"'))
+
+    // Final check of the complete HTML
+    const finalHtml = $.html()
+    console.log('Final HTML has all sections:',
+        finalHtml.includes('id="hero-section"'),
+        finalHtml.includes('id="about-section"'),
+        finalHtml.includes('id="services-section"'),
+        finalHtml.includes('id="footer-section"')
+    )
+
+    return finalHtml
 }
 
 /**

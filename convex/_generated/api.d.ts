@@ -11,6 +11,7 @@
 import type * as admin from "../admin.js";
 import type * as creators from "../creators.js";
 import type * as files from "../files.js";
+import type * as generatedWebsites from "../generatedWebsites.js";
 import type * as storage from "../storage.js";
 import type * as submissions from "../submissions.js";
 
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   admin: typeof admin;
   creators: typeof creators;
   files: typeof files;
+  generatedWebsites: typeof generatedWebsites;
   storage: typeof storage;
   submissions: typeof submissions;
 }>;
