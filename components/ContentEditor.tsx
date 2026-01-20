@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { Layout, Palette, Type, Layers, Box, FileText, ChevronDown, ChevronUp, Save } from 'lucide-react'
 
 export interface EditorCustomizations {
+    navbarStyle: string
     heroStyle: string
     aboutStyle: string
     servicesStyle: string
+    featuredStyle: string
     footerStyle: string
     colorScheme: string // 'auto' | 'blue' | 'green' | ...
     colorSchemeId: string
@@ -22,9 +24,11 @@ interface ContentEditorProps {
 
 export default function ContentEditor({ initialCustomizations, onUpdate, disabled }: ContentEditorProps) {
     const [customizations, setCustomizations] = useState<EditorCustomizations>({
+        navbarStyle: initialCustomizations?.navbarStyle || '1',
         heroStyle: initialCustomizations?.heroStyle || '1',
         aboutStyle: initialCustomizations?.aboutStyle || '1',
         servicesStyle: initialCustomizations?.servicesStyle || '1',
+        featuredStyle: initialCustomizations?.featuredStyle || '1',
         footerStyle: initialCustomizations?.footerStyle || '1',
         colorScheme: initialCustomizations?.colorSchemeId || 'auto',
         colorSchemeId: initialCustomizations?.colorSchemeId || 'auto',
@@ -112,6 +116,23 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
 
                     {expandedSections.has('layout') && (
                         <div className="p-4 space-y-4 bg-white">
+                            {/* Navbar Section - First */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                    Navbar Section
+                                    <span className="text-xs text-gray-400 font-normal ml-auto">Navigation</span>
+                                </label>
+                                <select
+                                    value={customizations.navbarStyle}
+                                    onChange={(e) => updateField('navbarStyle', e.target.value)}
+                                    disabled={disabled}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
+                                >
+                                    <option value="1">Minimal Dark (Default)</option>
+                                </select>
+                            </div>
+
+                            {/* Hero Section */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                                     Hero Section
@@ -123,18 +144,15 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     disabled={disabled}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
-                                    <option value="1">Slideshow (Default)</option>
-                                    <option value="2">Cinematic Video</option>
-                                    <option value="3">Split Screen</option>
-                                    <option value="4">Minimal Typography</option>
-                                    <option value="5">Immersive Fullscreen</option>
+                                    <option value="1">Split Dark Modern (Default)</option>
                                 </select>
                             </div>
 
+                            {/* About Section */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    About / Features
-                                    <span className="text-xs text-gray-400 font-normal ml-auto">Info Section</span>
+                                    About Section
+                                    <span className="text-xs text-gray-400 font-normal ml-auto">About Us</span>
                                 </label>
                                 <select
                                     value={customizations.aboutStyle}
@@ -142,18 +160,15 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     disabled={disabled}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
-                                    <option value="1">Process Grid (Default)</option>
-                                    <option value="2">Zig-Zag Story</option>
-                                    <option value="3">Big Typography</option>
-                                    <option value="4">Stats Bento Box</option>
-                                    <option value="5">Editorial Journey</option>
+                                    <option value="1">Refit Gallery (Default)</option>
                                 </select>
                             </div>
 
+                            {/* Services Section */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    Services / Gallery
-                                    <span className="text-xs text-gray-400 font-normal ml-auto">Middle Section</span>
+                                    Services Section
+                                    <span className="text-xs text-gray-400 font-normal ml-auto">What We Do</span>
                                 </label>
                                 <select
                                     value={customizations.servicesStyle}
@@ -161,17 +176,31 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     disabled={disabled}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
-                                    <option value="1">Featured Grid</option>
-                                    <option value="2">Split Layout</option>
-                                    <option value="3">Bento Box</option>
-                                    <option value="4">Accordion Cards</option>
+                                    <option value="1">Refit Accordion (Default)</option>
                                 </select>
                             </div>
 
+                            {/* Featured Section */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                                    Footer
-                                    <span className="text-xs text-gray-400 font-normal ml-auto">Bottom Info</span>
+                                    Featured Section
+                                    <span className="text-xs text-gray-400 font-normal ml-auto">Products</span>
+                                </label>
+                                <select
+                                    value={customizations.featuredStyle}
+                                    onChange={(e) => updateField('featuredStyle', e.target.value)}
+                                    disabled={disabled}
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
+                                >
+                                    <option value="1">Scroll Reveal Cards (Default)</option>
+                                </select>
+                            </div>
+
+                            {/* Footer Section */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                                    Footer Section
+                                    <span className="text-xs text-gray-400 font-normal ml-auto">Contact</span>
                                 </label>
                                 <select
                                     value={customizations.footerStyle}
@@ -179,11 +208,7 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     disabled={disabled}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
-                                    <option value="1">Minimal Centered (Default)</option>
-                                    <option value="2">Modern Multi-Column</option>
-                                    <option value="3">Big Impact Dark</option>
-                                    <option value="4">Minimal Bar</option>
-                                    <option value="5">Split Black & White</option>
+                                    <option value="1">Refit Contact (Default)</option>
                                 </select>
                             </div>
                         </div>

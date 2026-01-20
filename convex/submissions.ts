@@ -211,6 +211,8 @@ export const update = mutation({
         transcript: v.optional(v.string()),
         websiteUrl: v.optional(v.string()),
         websiteCode: v.optional(v.string()),
+        amount: v.optional(v.number()),
+        creatorPayout: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         const { id, ...updates } = args;
