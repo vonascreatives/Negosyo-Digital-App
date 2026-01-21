@@ -2,77 +2,86 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useUser } from "@clerk/nextjs"
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
+import { Loader2 } from "lucide-react"
 
 export default function SubmissionSuccessPage() {
     const router = useRouter()
-    const [payout, setPayout] = useState<number | null>(null)
+    const { user, isLoaded, isSignedIn } = useUser()
+
     const [submissionId, setSubmissionId] = useState<string | null>(null)
     const [transcribing, setTranscribing] = useState(false)
     const [transcriptionComplete, setTranscriptionComplete] = useState(false)
     const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
 
+    // Get creator from Convex
+    const creator = useQuery(
+        api.creators.getByClerkId,
+        user ? { clerkId: user.id } : "skip"
+    )
+
+    // Get submission from Convex
+    const submission = useQuery(
+        api.submissions.getById,
+        submissionId ? { id: submissionId as Id<"submissions"> } : "skip"
+    )
+
+    // Redirect if not authenticated
+    useEffect(() => {
+        if (isLoaded && !isSignedIn) {
+            router.push("/login")
+        }
+    }, [isLoaded, isSignedIn, router])
+
+    // Load submission ID from session
     useEffect(() => {
         const id = sessionStorage.getItem('current_submission_id')
         if (id) {
             setSubmissionId(id)
-            fetchPayout(id)
-            // Trigger transcription automatically
-            triggerTranscription(id)
             // Clear session storage so user can start fresh next time
             sessionStorage.removeItem('current_submission_id')
         }
     }, [])
 
-    const fetchPayout = async (id: string) => {
-        try {
-            const supabase = createClient()
-            const { data } = await supabase
-                .from('submissions')
-                .select('creator_payout')
-                .eq('id', id)
-                .single()
-
-            if (data) {
-                setPayout(data.creator_payout)
-            }
-        } catch (err) {
-            console.error('Error fetching payout:', err)
+    // Trigger transcription when submission is loaded
+    useEffect(() => {
+        if (submission && (submission.videoStorageId || submission.audioStorageId) && !transcribing && !transcriptionComplete) {
+            triggerTranscription()
         }
-    }
+    }, [submission])
 
-    const triggerTranscription = async (id: string) => {
+    const triggerTranscription = async () => {
+        if (!submissionId || !submission) return
+
         try {
             setTranscribing(true)
             setTranscriptionError(null)
 
-            // Get submission to find audio/video URL
-            const supabase = createClient()
-            const { data: submission } = await supabase
-                .from('submissions')
-                .select('audio_url, video_url')
-                .eq('id', id)
-                .single()
+            // For Convex storage, we need to get the actual URL
+            // The transcription API will need to handle Convex storage IDs
+            // For now, we'll skip transcription if using Convex storage
+            // This can be enhanced later with proper Convex file URL resolution
 
-            if (!submission) {
-                throw new Error('Submission not found')
-            }
-
-            const audioUrl = submission.audio_url || submission.video_url
-            if (!audioUrl) {
+            const hasMedia = submission.videoStorageId || submission.audioStorageId
+            if (!hasMedia) {
                 setTranscribing(false)
                 return
             }
 
-            // Call transcription API
+            // Call transcription API with storage info
             const res = await fetch('/api/transcribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    audioUrl,
-                    submissionId: id
+                    submissionId: submissionId,
+                    useConvexStorage: true,
+                    videoStorageId: submission.videoStorageId,
+                    audioStorageId: submission.audioStorageId,
                 }),
             })
 
@@ -91,6 +100,18 @@ export default function SubmissionSuccessPage() {
         }
     }
 
+    // Determine payout based on interview type
+    const payout = submission?.videoStorageId ? 500 : (submission?.audioStorageId ? 300 : null)
+
+    // Loading state - wait for submission to load too
+    if (!isLoaded || !isSignedIn || creator === undefined || (submissionId && submission === undefined)) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
             <div className="max-w-md w-full text-center space-y-8">
@@ -101,7 +122,6 @@ export default function SubmissionSuccessPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    {/* Confetti decorations can be added here with CSS/SVG if desired */}
                 </div>
 
                 <div>
@@ -124,12 +144,12 @@ export default function SubmissionSuccessPage() {
                         {/* Transcription Status */}
                         {(transcribing || transcriptionComplete || transcriptionError) && (
                             <div className={`flex items-start gap-3 p-3 rounded-lg ${transcribing ? 'bg-blue-50' :
-                                    transcriptionComplete ? 'bg-green-50' :
-                                        'bg-red-50'
+                                transcriptionComplete ? 'bg-green-50' :
+                                    'bg-red-50'
                                 }`}>
                                 <div className="flex-shrink-0 mt-0.5">
                                     {transcribing && (
-                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                        <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                                     )}
                                     {transcriptionComplete && (
                                         <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,8 +164,8 @@ export default function SubmissionSuccessPage() {
                                 </div>
                                 <div className="flex-1">
                                     <p className={`text-sm font-medium ${transcribing ? 'text-blue-900' :
-                                            transcriptionComplete ? 'text-green-900' :
-                                                'text-red-900'
+                                        transcriptionComplete ? 'text-green-900' :
+                                            'text-red-900'
                                         }`}>
                                         {transcribing && 'AI is transcribing your interview...'}
                                         {transcriptionComplete && 'Interview transcribed successfully!'}
