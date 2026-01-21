@@ -803,6 +803,11 @@ export default function SubmissionDetailPage() {
                                         }}
                                         htmlContent={websiteHtmlContent || ''}
                                         submissionId={submissionId}
+                                        navbarStyle={websiteCustomizations?.navbarStyle || '1'}
+                                        heroStyle={websiteCustomizations?.heroStyle || '1'}
+                                        aboutStyle={websiteCustomizations?.aboutStyle || '1'}
+                                        servicesStyle={websiteCustomizations?.servicesStyle || '1'}
+                                        featuredStyle={websiteCustomizations?.featuredStyle || '1'}
                                         availableImages={[
                                             // Include both hero images and submission photos (resolved URLs) for selection
                                             ...(heroImageUrls?.filter((url): url is string => url !== null) || []),

@@ -81,20 +81,164 @@ export default defineSchema({
         .index('by_status', ['status'])
         .index('by_payoutRequested', ['payoutRequestedAt']),
 
-    // Generated websites
+    // Generated websites - technical/deployment data only
     generatedWebsites: defineTable({
         submissionId: v.id('submissions'),
         templateName: v.string(),
-        extractedContent: v.any(), // JSON object with business content
-        customizations: v.optional(v.any()), // JSON object with design customizations
+        // DEPRECATED: extractedContent and customizations are being moved to websiteContent table
+        // Kept for backward compatibility during migration
+        extractedContent: v.optional(v.any()),
+        customizations: v.optional(v.any()),
+        // Technical/build data
         htmlContent: v.optional(v.string()),
         cssContent: v.optional(v.string()),
-        htmlStorageId: v.optional(v.id('_storage')), // Store HTML in Convex storage
+        htmlStorageId: v.optional(v.id('_storage')),
+        // Publishing/deployment
         status: v.union(v.literal('draft'), v.literal('published')),
-        publishedUrl: v.optional(v.string()), // Netlify URL
+        publishedUrl: v.optional(v.string()),
         netlifySiteId: v.optional(v.string()),
-        publishedAt: v.optional(v.number()), // Timestamp
+        publishedAt: v.optional(v.number()),
     })
         .index('by_submissionId', ['submissionId'])
         .index('by_status', ['status']),
+
+    // Website content - all editable content with proper typing
+    websiteContent: defineTable({
+        websiteId: v.id('generatedWebsites'),
+
+        // ==================== BUSINESS INFO ====================
+        businessName: v.string(),
+        tagline: v.string(),
+        aboutText: v.string(),
+        tone: v.optional(v.string()),
+
+        // ==================== HERO SECTION ====================
+        heroHeadline: v.optional(v.string()),
+        heroSubheadline: v.optional(v.string()),
+        heroBadgeText: v.optional(v.string()),
+        heroTestimonial: v.optional(v.string()),
+        heroCtaLabel: v.optional(v.string()),
+        heroCtaLink: v.optional(v.string()),
+
+        // ==================== ABOUT SECTION ====================
+        aboutHeadline: v.optional(v.string()),
+        aboutDescription: v.optional(v.string()),
+        aboutTagline: v.optional(v.string()), // Section title for style 3
+        aboutTags: v.optional(v.array(v.string())), // Iterable tags for style 3
+        uniqueSellingPoints: v.optional(v.array(v.string())),
+
+        // ==================== SERVICES SECTION ====================
+        servicesHeadline: v.optional(v.string()),
+        servicesSubheadline: v.optional(v.string()),
+        services: v.optional(v.array(v.object({
+            name: v.string(),
+            description: v.string(),
+            icon: v.optional(v.string()),
+        }))),
+
+        // ==================== FEATURED SECTION ====================
+        featuredHeadline: v.optional(v.string()),
+        featuredSubheadline: v.optional(v.string()),
+        featuredProducts: v.optional(v.array(v.object({
+            title: v.string(),
+            description: v.string(),
+            image: v.optional(v.string()),
+            tags: v.optional(v.array(v.string())),
+            testimonial: v.optional(v.object({
+                quote: v.string(),
+                author: v.string(),
+                avatar: v.optional(v.string()),
+            })),
+        }))),
+        featuredImages: v.optional(v.array(v.string())), // For style 3 gallery
+        featuredCtaText: v.optional(v.string()), // CTA button text for style 4
+        featuredCtaLink: v.optional(v.string()), // CTA button link for style 4
+
+        // ==================== CONTACT INFO ====================
+        contact: v.optional(v.object({
+            email: v.string(),
+            phone: v.string(),
+            address: v.optional(v.string()),
+            whatsapp: v.optional(v.string()),
+            messenger: v.optional(v.string()),
+        })),
+
+        // ==================== FOOTER ====================
+        footerDescription: v.optional(v.string()),
+        socialLinks: v.optional(v.array(v.object({
+            platform: v.string(),
+            url: v.string(),
+        }))),
+
+        // ==================== NAVIGATION ====================
+        navbarLinks: v.optional(v.array(v.object({
+            label: v.string(),
+            href: v.string(),
+        }))),
+        navbarCtaText: v.optional(v.string()),
+        navbarCtaLink: v.optional(v.string()),
+        navbarHeadline: v.optional(v.string()), // For style 4
+
+        // ==================== IMAGES ====================
+        images: v.optional(v.object({
+            hero: v.optional(v.array(v.string())),
+            about: v.optional(v.array(v.string())),
+            services: v.optional(v.array(v.string())),
+            featured: v.optional(v.array(v.string())),
+            gallery: v.optional(v.array(v.string())),
+        })),
+
+        // ==================== VISIBILITY SETTINGS ====================
+        visibility: v.optional(v.object({
+            navbar: v.optional(v.boolean()),
+            navbarHeadline: v.optional(v.boolean()), // For style 4
+            heroSection: v.optional(v.boolean()),
+            heroHeadline: v.optional(v.boolean()),
+            heroTagline: v.optional(v.boolean()),
+            heroDescription: v.optional(v.boolean()),
+            heroTestimonial: v.optional(v.boolean()),
+            heroButton: v.optional(v.boolean()),
+            heroImage: v.optional(v.boolean()),
+            aboutSection: v.optional(v.boolean()),
+            aboutBadge: v.optional(v.boolean()),
+            aboutHeadline: v.optional(v.boolean()),
+            aboutDescription: v.optional(v.boolean()),
+            aboutImages: v.optional(v.boolean()),
+            aboutTagline: v.optional(v.boolean()),
+            aboutTags: v.optional(v.boolean()),
+            servicesSection: v.optional(v.boolean()),
+            servicesBadge: v.optional(v.boolean()),
+            servicesHeadline: v.optional(v.boolean()),
+            servicesSubheadline: v.optional(v.boolean()),
+            servicesImage: v.optional(v.boolean()),
+            servicesList: v.optional(v.boolean()),
+            featuredSection: v.optional(v.boolean()),
+            featuredHeadline: v.optional(v.boolean()),
+            featuredSubheadline: v.optional(v.boolean()),
+            featuredProducts: v.optional(v.boolean()),
+            featuredImages: v.optional(v.boolean()), // For style 3 gallery
+            footerSection: v.optional(v.boolean()),
+            footerBadge: v.optional(v.boolean()),
+            footerHeadline: v.optional(v.boolean()),
+            footerDescription: v.optional(v.boolean()),
+            footerContact: v.optional(v.boolean()),
+            footerSocial: v.optional(v.boolean()),
+        })),
+
+        // ==================== CUSTOMIZATIONS (STYLES) ====================
+        customizations: v.optional(v.object({
+            navbarStyle: v.optional(v.string()),
+            heroStyle: v.optional(v.string()),
+            aboutStyle: v.optional(v.string()),
+            servicesStyle: v.optional(v.string()),
+            featuredStyle: v.optional(v.string()),
+            footerStyle: v.optional(v.string()),
+            colorScheme: v.optional(v.string()),
+            fontPairing: v.optional(v.string()),
+        })),
+
+        // ==================== METADATA ====================
+        updatedAt: v.number(),
+    })
+        .index('by_websiteId', ['websiteId']),
 });
