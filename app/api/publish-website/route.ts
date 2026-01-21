@@ -138,26 +138,22 @@ export async function POST(request: NextRequest) {
             : `https://${siteName}.netlify.app`
 
         // Update generated website in Convex with published info
-        console.log('Updating generatedWebsites with:', { submissionId, publishedUrl, netlifySiteId: siteId })
         try {
-            const websiteUpdateResult = await fetchMutation(api.generatedWebsites.publish, {
+            await fetchMutation(api.generatedWebsites.publish, {
                 submissionId: submissionId as Id<"submissions">,
                 publishedUrl,
                 netlifySiteId: siteId,
             })
-            console.log('generatedWebsites.publish result:', websiteUpdateResult)
         } catch (updateError: any) {
             console.error('Database update error:', updateError?.message || updateError)
         }
 
         // Update submission status to deployed
-        console.log('Updating submission status to deployed:', submissionId)
         try {
             await fetchMutation(api.submissions.updateStatus, {
                 id: submissionId as Id<"submissions">,
                 status: 'deployed'
             })
-            console.log('Submission status updated to deployed')
         } catch (statusError: any) {
             console.error('Status update error:', statusError?.message || statusError)
         }

@@ -48,6 +48,7 @@ export interface ExtractedContent {
     // Visibility toggles
     visibility?: {
         navbar?: boolean
+        navbar_headline?: boolean // For style 4
         hero_section?: boolean // Master toggle for entire hero section
         hero_headline?: boolean
         hero_tagline?: boolean
@@ -61,6 +62,8 @@ export interface ExtractedContent {
         about_headline?: boolean
         about_description?: boolean
         about_images?: boolean
+        about_tagline?: boolean
+        about_tags?: boolean
         // Services section visibility
         services_section?: boolean // Master toggle for entire services section
         services_badge?: boolean
@@ -73,6 +76,7 @@ export interface ExtractedContent {
         featured_headline?: boolean
         featured_subheadline?: boolean
         featured_products?: boolean
+        featured_images?: boolean // For style 3 gallery
         // Footer section visibility
         footer_section?: boolean // Master toggle for entire footer section
         footer_badge?: boolean
@@ -99,12 +103,20 @@ export interface ExtractedContent {
             avatar?: string
         }
     }>
+    featured_images?: string[] // For style 3 gallery
+    featured_cta_text?: string // CTA button text for style 4
+    featured_cta_link?: string // CTA button link for style 4
     // About section fields
     about_headline?: string
     about_description?: string // Separate description for about section
     about_images?: string[] // Separate images for about section gallery
+    about_tagline?: string // Section title for style 3
+    about_tags?: string[] // Iterable tags for style 3
     // Navbar fields
     navbar_links?: Array<{ label: string; href: string }>
+    navbar_cta_text?: string
+    navbar_cta_link?: string
+    navbar_headline?: string // For style 4
 }
 
 export interface Customizations {
@@ -131,24 +143,6 @@ export function injectContent(
     photos?: string[]
 ): string {
     const $ = cheerio.load(templateHtml)
-
-    console.log('=== INJECTOR DEBUG ===')
-    console.log('Content received:', {
-        business_name: content?.business_name,
-        tagline: content?.tagline,
-        about: content?.about,
-        services_count: content?.services?.length,
-        services: content?.services?.map(s => ({ name: s.name, description: s.description?.substring(0, 50) + '...' })),
-        contact: content?.contact
-    })
-    console.log('Visibility settings:', content?.visibility)
-    console.log('Services section fields:', {
-        services_headline: content?.services_headline,
-        services_subheadline: content?.services_subheadline,
-        services_image: content?.services_image ? 'set' : 'not set'
-    })
-    console.log('Customizations:', customizations)
-    console.log('Photos:', photos?.length)
 
     // Update page title
     $('title').text(`${content.business_name} - ${content.tagline}`)
@@ -179,18 +173,15 @@ export function injectContent(
         const navbarProps = {
             businessName: content.business_name,
             links: content.navbar_links,
+            ctaText: content.navbar_cta_text,
+            ctaLink: content.navbar_cta_link,
+            headline: content.navbar_headline,
             visibility: {
-                navbar: content.visibility?.navbar
+                navbar: content.visibility?.navbar,
+                navbar_headline: content.visibility?.navbar_headline
             }
         }
-        console.log('=== NAVBAR GENERATION ===')
-        console.log('Navbar props:', {
-            businessName: navbarProps.businessName,
-            links: navbarProps.links,
-            visible: navbarProps.visibility?.navbar
-        })
         navbarHtml = generateNavbarHtml(customizations.navbarStyle, navbarProps)
-        console.log('Navbar generated, length:', navbarHtml.length)
     }
 
     // 2b. Generate Hero (only if hero_section is visible)
@@ -206,17 +197,7 @@ export function injectContent(
             testimonial: content.hero_testimonial,
             visibility: content.visibility
         }
-        console.log('=== HERO GENERATION ===')
-        console.log('Hero props:', {
-            businessName: heroProps.businessName,
-            tagline: heroProps.tagline,
-            about: heroProps.about?.substring(0, 100) + '...',
-            badgeText: heroProps.badgeText,
-            testimonial: heroProps.testimonial?.substring(0, 50) + '...',
-            photosCount: heroProps.photos?.length
-        })
         heroHtml = generateHeroHtml(customizations.heroStyle, heroProps)
-        console.log('Hero generated, length:', heroHtml.length)
     }
 
     // 2c. Generate About (only if about_section is visible)
@@ -235,25 +216,18 @@ export function injectContent(
             photos: aboutPhotos,
             usps: content.unique_selling_points,
             headline: content.about_headline,
+            tagline: content.about_tagline,
+            tags: content.about_tags,
             visibility: {
                 about_badge: content.visibility?.about_badge,
                 about_headline: content.visibility?.about_headline,
                 about_description: content.visibility?.about_description,
-                about_images: content.visibility?.about_images
+                about_images: content.visibility?.about_images,
+                about_tagline: content.visibility?.about_tagline,
+                about_tags: content.visibility?.about_tags
             }
         }
-        console.log('=== ABOUT GENERATION ===')
-        console.log('About props:', {
-            businessName: aboutProps.businessName,
-            headline: aboutProps.headline,
-            about: aboutProps.about?.substring(0, 100) + '...',
-            usps: aboutProps.usps,
-            photosCount: aboutProps.photos?.length,
-            visibility: aboutProps.visibility
-        })
-
         aboutHtml = generateAboutHtml(customizations.aboutStyle, aboutProps)
-        console.log('About generated, length:', aboutHtml.length)
     }
 
     // 2d. Generate Services (only if services_section is visible)
@@ -277,21 +251,7 @@ export function injectContent(
                 services_list: content.visibility?.services_list
             }
         }
-        console.log('=== SERVICES GENERATION ===')
-        console.log('Services props:', {
-            headline: servicesProps.headline || 'What we do (default)',
-            subheadline: servicesProps.subheadline?.substring(0, 50) + '...' || 'Find out which one... (default)',
-            photosCount: servicesProps.photos?.length,
-            servicesCount: servicesProps.services?.length,
-            services: servicesProps.services?.map(s => ({
-                name: s.name,
-                description: s.description?.substring(0, 80) + '...'
-            })),
-            visibility: servicesProps.visibility
-        })
-
         servicesHtml = generateServicesHtml(customizations.servicesStyle, servicesProps)
-        console.log('Services generated, length:', servicesHtml.length)
     }
 
     // 2e. Generate Featured (only if featured_section is visible)
@@ -302,43 +262,27 @@ export function injectContent(
             projects: content.featured_products,
             headline: content.featured_headline,
             subheadline: content.featured_subheadline,
+            featuredImages: content.featured_images,
+            ctaText: content.featured_cta_text,
+            ctaLink: content.featured_cta_link,
             visibility: {
                 featured_headline: content.visibility?.featured_headline,
                 featured_subheadline: content.visibility?.featured_subheadline,
-                featured_products: content.visibility?.featured_products
+                featured_products: content.visibility?.featured_products,
+                featured_images: content.visibility?.featured_images
             }
         }
-        console.log('=== FEATURED GENERATION ===')
-        console.log('Featured props:', {
-            headline: featuredProps.headline || 'Featured Products (default)',
-            subheadline: featuredProps.subheadline?.substring(0, 50) + '...' || 'Take a look... (default)',
-            photosCount: featuredProps.photos?.length,
-            projectsCount: featuredProps.projects?.length,
-            visibility: featuredProps.visibility
-        })
-        // Log each project in detail
-        if (featuredProps.projects && featuredProps.projects.length > 0) {
-            featuredProps.projects.forEach((p, i) => {
-                console.log(`Featured Product ${i + 1}:`, {
-                    title: p?.title || '(missing)',
-                    description: p?.description?.substring(0, 80) + '...' || '(missing)',
-                    image: p?.image ? 'set' : 'not set',
-                    tags: p?.tags || [],
-                    hasTestimonial: !!(p?.testimonial?.quote && p?.testimonial?.author),
-                    testimonialAuthor: p?.testimonial?.author || '(none)'
-                })
-            })
-        } else {
-            console.log('No featured projects provided - will use defaults')
-        }
-
         featuredHtml = generateFeaturedHtml(customizations.featuredStyle, featuredProps)
-        console.log('Featured generated, length:', featuredHtml.length)
     }
 
     // 2f. Generate Footer (only if footer_section is visible)
     let footerHtml = ''
     if (customizations?.footerStyle && content.visibility?.footer_section !== false) {
+        // Get a featured image for the Craft Footer style (first product image or first photo)
+        const featuredProductImage = content.featured_products?.[0]?.image
+        const firstPhoto = photos?.[0]
+        const footerFeaturedImage = featuredProductImage || firstPhoto
+
         const footerProps = {
             businessName: content.business_name,
             email: content.contact?.email || 'contact@example.com',
@@ -346,6 +290,8 @@ export function injectContent(
             address: content.contact?.address,
             description: content.footer?.brand_blurb,
             socialLinks: content.footer?.social_links,
+            featuredImage: footerFeaturedImage,
+            photos: photos, // Pass uploaded photos for marquee carousel
             visibility: {
                 footer_badge: content.visibility?.footer_badge,
                 footer_headline: content.visibility?.footer_headline,
@@ -354,18 +300,7 @@ export function injectContent(
                 footer_social: content.visibility?.footer_social
             }
         }
-        console.log('=== FOOTER GENERATION ===')
-        console.log('Footer props:', {
-            businessName: footerProps.businessName,
-            email: footerProps.email,
-            phone: footerProps.phone,
-            address: footerProps.address,
-            description: footerProps.description?.substring(0, 50) + '...',
-            socialLinksCount: footerProps.socialLinks?.length,
-            visibility: footerProps.visibility
-        })
         footerHtml = generateFooterHtml(customizations.footerStyle, footerProps)
-        console.log('Footer generated, length:', footerHtml.length)
     }
 
     // STEP 3: Inject components in correct order
@@ -436,16 +371,7 @@ export function injectContent(
         }
     }
 
-    // Debug output
-    console.log('=== FINAL STATE ===')
-    const finalHtml = $.html()
-    console.log('Final HTML has navbar-section:', finalHtml.includes('id="navbar-section"'))
-    console.log('Final HTML has hero-section:', finalHtml.includes('id="hero-section"'))
-    console.log('Final HTML has about-section:', finalHtml.includes('id="about-section"'))
-    console.log('Final HTML has services-section:', finalHtml.includes('id="services-section"'))
-    console.log('Final HTML has footer-section:', finalHtml.includes('id="footer-section"'))
-
-    return finalHtml
+    return $.html()
 }
 
 /**

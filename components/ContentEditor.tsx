@@ -129,6 +129,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Minimal Dark (Default)</option>
+                                    <option value="2">Transparent Overlay</option>
+                                    <option value="3">Centered Links</option>
+                                    <option value="4">Headline with Bullets</option>
                                 </select>
                             </div>
 
@@ -145,6 +148,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Split Dark Modern (Default)</option>
+                                    <option value="2">Fullscreen Background</option>
+                                    <option value="3">Centered Carousel</option>
+                                    <option value="4">Services List Dark</option>
                                 </select>
                             </div>
 
@@ -161,6 +167,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Refit Gallery (Default)</option>
+                                    <option value="2">Minimal Italic</option>
+                                    <option value="3">Linea Tags</option>
+                                    <option value="4">Quote with Logo Carousel</option>
                                 </select>
                             </div>
 
@@ -177,6 +186,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Refit Accordion (Default)</option>
+                                    <option value="2">Minimal Grid</option>
+                                    <option value="3">Card Grid (No Images)</option>
+                                    <option value="4">Stats Grid with Quote</option>
                                 </select>
                             </div>
 
@@ -193,6 +205,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Scroll Reveal Cards (Default)</option>
+                                    <option value="2">Portfolio Stack</option>
+                                    <option value="3">Gallery Grid (Images Only)</option>
+                                    <option value="4">Staggered Masonry Grid</option>
                                 </select>
                             </div>
 
@@ -209,6 +224,9 @@ export default function ContentEditor({ initialCustomizations, onUpdate, disable
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm py-2 px-3"
                                 >
                                     <option value="1">Refit Contact (Default)</option>
+                                    <option value="2">Craft Footer</option>
+                                    <option value="3">Orange CTA</option>
+                                    <option value="4">Dark Marquee Contact</option>
                                 </select>
                             </div>
                         </div>
